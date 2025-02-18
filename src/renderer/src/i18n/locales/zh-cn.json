@@ -641,6 +641,8 @@
       "messages.math_engine": "数学公式引擎",
       "messages.grid_columns": "消息网格展示列数",
       "messages.grid_popover_trigger": "网格详情触发",
+      "messages.grid_popover_trigger.hover": "悬停显示",
+      "messages.grid_popover_trigger.click": "点击显示",
       "messages.metrics": "首字时延 {{time_first_token_millsec}}ms | 每秒 {{token_speed}} tokens",
       "messages.model.title": "模型设置",
       "messages.title": "消息设置",
@@ -713,7 +715,7 @@
       },
       "shortcuts": {
         "action": "操作",
-        "alt_warning": "Mac 系统不能使用 Option + 字母作为快捷键",
+        "alt_warning": "Mac 系统中 Option 键只能与空格键组合使用",
         "clear_shortcut": "清除快捷键",
         "clear_topic": "清空消息",
         "copy_last_message": "复制上一条消息",

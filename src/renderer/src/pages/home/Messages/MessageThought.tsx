@@ -1,7 +1,7 @@
 import { useSettings } from '@renderer/hooks/useSettings'
-import { Message } from '@renderer/types'
+import type { Message } from '@renderer/types'
 import { Collapse } from 'antd'
-import { FC, useEffect, useMemo, useState } from 'react'
+import { type FC, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import BarLoader from 'react-spinners/BarLoader'
 import styled from 'styled-components'
@@ -33,7 +33,6 @@ const MessageThought: FC<Props> = ({ message }) => {
 
   const thinkingTime = message.metrics?.time_thinking_millsec || 0
   const thinkingTimeSeconds = (thinkingTime / 1000).toFixed(1)
-  const isPaused = message.status === 'paused'
 
   return (
     <CollapseContainer
@@ -49,7 +48,7 @@ const MessageThought: FC<Props> = ({ message }) => {
               <TinkingText>
                 {isThinking ? t('chat.thinking') : t('chat.deeply_thought', { secounds: thinkingTimeSeconds })}
               </TinkingText>
-              {isThinking && !isPaused && <BarLoader color="#9254de" />}
+              {isThinking && <BarLoader color="#9254de" />}
             </MessageTitleLabel>
           ),
           children: (

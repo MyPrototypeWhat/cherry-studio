@@ -38,6 +38,7 @@ const MessageThought: FC<Props> = ({ message }) => {
   return (
     <CollapseContainer
       activeKey={activeKey}
+      size="small"
       onChange={() => setActiveKey((key) => (key ? '' : 'thought'))}
       className="message-thought-container"
       items={[

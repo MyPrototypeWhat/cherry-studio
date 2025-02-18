@@ -641,6 +641,8 @@
       "messages.math_engine": "数式エンジン",
       "messages.grid_columns": "メッセージグリッドの表示列数",
       "messages.grid_popover_trigger": "グリッド詳細トリガー",
+      "messages.grid_popover_trigger.hover": "ホバーで表示",
+      "messages.grid_popover_trigger.click": "クリックで表示",
       "messages.metrics": "最初のトークンまでの時間 {{time_first_token_millsec}}ms | トークン速度 {{token_speed}} tok/sec",
       "messages.model.title": "モデル設定",
       "messages.title": "メッセージ設定",
@@ -713,7 +715,7 @@
       },
       "shortcuts": {
         "action": "操作",
-        "alt_warning": "MacではOption + 文字をショートカットとして使用できません",
+        "alt_warning": "MacではOptionキーとの組み合わせは、スペースキーのみ使用可能です",
         "clear_shortcut": "ショートカットをクリア",
         "clear_topic": "メッセージを消去",
         "copy_last_message": "最後のメッセージをコピー",

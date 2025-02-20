@@ -1,18 +1,27 @@
-import { CheckOutlined, SendOutlined, SettingOutlined, SwapOutlined, WarningOutlined } from '@ant-design/icons'
+import {
+  CheckOutlined,
+  DeleteOutlined,
+  HistoryOutlined,
+  SendOutlined,
+  SettingOutlined,
+  WarningOutlined
+} from '@ant-design/icons'
 import { Navbar, NavbarCenter } from '@renderer/components/app/Navbar'
 import CopyIcon from '@renderer/components/Icons/CopyIcon'
 import { isLocalAi } from '@renderer/config/env'
-import { TranslateLanguageOptions } from '@renderer/config/translate'
+import { translateLanguageOptions } from '@renderer/config/translate'
 import db from '@renderer/databases'
 import { useDefaultModel } from '@renderer/hooks/useAssistant'
 import { fetchTranslate } from '@renderer/services/ApiService'
 import { getDefaultTranslateAssistant } from '@renderer/services/AssistantService'
-import { Assistant, Message } from '@renderer/types'
+import { Assistant, Message, TranslateHistory } from '@renderer/types'
 import { runAsyncFunction, uuid } from '@renderer/utils'
-import { Button, Select, Space } from 'antd'
-import TextArea from 'antd/es/input/TextArea'
+import { Button, Dropdown, Empty, Flex, Popconfirm, Select, Space } from 'antd'
+import TextArea, { TextAreaRef } from 'antd/es/input/TextArea'
+import dayjs from 'dayjs'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { isEmpty } from 'lodash'
-import { FC, useEffect, useState } from 'react'
+import { FC, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
@@ -29,10 +38,41 @@ const TranslatePage: FC = () => {
   const { translateModel } = useDefaultModel()
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false)
+  const contentContainerRef = useRef<HTMLDivElement>(null)
+  const textAreaRef = useRef<TextAreaRef>(null)
+
+  const translateHistory = useLiveQuery(() => db.translate_history.orderBy('createdAt').reverse().toArray(), [])
 
   _text = text
   _result = result
   _targetLanguage = targetLanguage
+
+  const saveTranslateHistory = async (
+    sourceText: string,
+    targetText: string,
+    sourceLanguage: string,
+    targetLanguage: string
+  ) => {
+    const history: TranslateHistory = {
+      id: uuid(),
+      sourceText,
+      targetText,
+      sourceLanguage,
+      targetLanguage,
+      createdAt: new Date().toISOString()
+    }
+    console.log('🌟TEO🌟 ~ saveTranslateHistory ~ history:', history)
+    await db.translate_history.add(history)
+  }
+
+  const deleteHistory = async (id: string) => {
+    db.translate_history.delete(id)
+  }
+
+  const clearHistory = async () => {
+    db.translate_history.clear()
+  }
 
   const onTranslate = async () => {
     if (!text.trim()) {
@@ -62,7 +102,17 @@ const TranslatePage: FC = () => {
     }
 
     setLoading(true)
-    await fetchTranslate({ message, assistant, onResponse: (text) => setResult(text) })
+    let translatedText = ''
+    await fetchTranslate({
+      message,
+      assistant,
+      onResponse: (text) => {
+        translatedText = text
+        setResult(text)
+      }
+    })
+
+    await saveTranslateHistory(text, translatedText, 'any', targetLanguage)
     setLoading(false)
   }
 
@@ -70,6 +120,12 @@ const TranslatePage: FC = () => {
     navigator.clipboard.writeText(result)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const onHistoryItemClick = (history: TranslateHistory) => {
+    setText(history.sourceText)
+    setResult(history.targetText)
+    setTargetLanguage(history.targetLanguage)
   }
 
   useEffect(() => {
@@ -109,53 +165,85 @@ const TranslatePage: FC = () => {
   }
 
   return (
-    <Container>
+    <Container id="translate-page">
       <Navbar>
-        <NavbarCenter style={{ borderRight: 'none' }}>{t('translate.title')}</NavbarCenter>
+        <NavbarCenter style={{ borderRight: 'none', gap: 10 }}>
+          {t('translate.title')}
+          <Button
+            className="nodrag"
+            color="default"
+            variant={historyDrawerVisible ? 'filled' : 'text'}
+            type="text"
+            icon={<HistoryOutlined />}
+            onClick={() => setHistoryDrawerVisible(!historyDrawerVisible)}
+          />
+        </NavbarCenter>
       </Navbar>
-      <ContentContainer id="content-container">
-        <MenuContainer>
-          <Select
-            showSearch
-            value="any"
-            style={{ width: 180 }}
-            optionFilterProp="label"
-            disabled
-            options={[{ label: t('translate.any.language'), value: 'any' }]}
-          />
-          <SwapOutlined />
-          <Select
-            showSearch
-            value={targetLanguage}
-            style={{ width: 180 }}
-            optionFilterProp="label"
-            options={TranslateLanguageOptions}
-            onChange={(value) => {
-              setTargetLanguage(value)
-              db.settings.put({ id: 'translate:target:language', value })
-            }}
-            optionRender={(option) => (
-              <Space>
-                <span role="img" aria-label={option.data.label}>
-                  {option.data.emoji}
-                </span>
-                {option.label}
-              </Space>
+      <ContentContainer id="content-container" ref={contentContainerRef} $historyDrawerVisible={historyDrawerVisible}>
+        <HistoryContainner $historyDrawerVisible={historyDrawerVisible}>
+          <OperationBar>
+            <span style={{ fontSize: 16 }}>{t('translate.history.title')}</span>
+            {translateHistory?.length && (
+              <Popconfirm
+                title={t('translate.history.clear')}
+                description={t('translate.history.clear_description')}
+                onConfirm={clearHistory}
+                okText="Yes"
+                cancelText="No">
+                <Button type="text" size="small" danger icon={<DeleteOutlined />}>
+                  {t('translate.history.clear')}
+                </Button>
+              </Popconfirm>
             )}
-          />
-          <SettingButton />
-        </MenuContainer>
-        <TranslateInputWrapper>
-          <InputContainer>
-            <Textarea
-              variant="borderless"
-              placeholder={t('translate.input.placeholder')}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              disabled={loading}
-              spellCheck={false}
-              allowClear
-            />
+          </OperationBar>
+          {translateHistory && translateHistory.length ? (
+            <HistoryList>
+              {translateHistory.map((item) => (
+                <Dropdown
+                  key={item.id}
+                  trigger={['contextMenu']}
+                  menu={{
+                    items: [
+                      {
+                        key: 'delete',
+                        label: t('translate.history.delete'),
+                        icon: <DeleteOutlined />,
+                        danger: true,
+                        onClick: () => deleteHistory(item.id)
+                      }
+                    ]
+                  }}>
+                  <HistoryListItem onClick={() => onHistoryItemClick(item)}>
+                    <Flex justify="space-between" vertical gap={4} style={{ width: '100%' }}>
+                      <HistoryListItemTitle>{item.sourceText}</HistoryListItemTitle>
+                      <HistoryListItemTitle>{item.targetText}</HistoryListItemTitle>
+                      <HistoryListItemDate>{dayjs(item.createdAt).format('MM/DD HH:mm')}</HistoryListItemDate>
+                    </Flex>
+                  </HistoryListItem>
+                </Dropdown>
+              ))}
+            </HistoryList>
+          ) : (
+            <Flex justify="center" align="center" style={{ flex: 1 }}>
+              <Empty description={t('translate.history.empty')} />
+            </Flex>
+          )}
+        </HistoryContainner>
+
+        <InputContainer>
+          <OperationBar>
+            <Flex align="center" gap={20}>
+              <Select
+                showSearch
+                value="any"
+                style={{ width: 180 }}
+                optionFilterProp="label"
+                disabled
+                options={[{ label: t('translate.any.language'), value: 'any' }]}
+              />
+              <SettingButton />
+            </Flex>
+
             <TranslateButton
               type="primary"
               loading={loading}
@@ -164,49 +252,66 @@ const TranslatePage: FC = () => {
               icon={<SendOutlined />}>
               {t('translate.button.translate')}
             </TranslateButton>
-          </InputContainer>
-          <OutputContainer>
-            <OutputText>{result || t('translate.output.placeholder')}</OutputText>
+          </OperationBar>
+
+          <Textarea
+            ref={textAreaRef}
+            variant="borderless"
+            placeholder={t('translate.input.placeholder')}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            disabled={loading}
+            spellCheck={false}
+            allowClear
+          />
+        </InputContainer>
+
+        <OutputContainer>
+          <OperationBar>
+            <Select
+              showSearch
+              value={targetLanguage}
+              style={{ width: 180 }}
+              optionFilterProp="label"
+              options={translateLanguageOptions()}
+              onChange={(value) => {
+                setTargetLanguage(value)
+                db.settings.put({ id: 'translate:target:language', value })
+              }}
+              optionRender={(option) => (
+                <Space>
+                  <span role="img" aria-label={option.data.label}>
+                    {option.data.emoji}
+                  </span>
+                  {option.label}
+                </Space>
+              )}
+            />
             <CopyButton
               onClick={onCopy}
               disabled={!result}
               icon={copied ? <CheckOutlined style={{ color: 'var(--color-primary)' }} /> : <CopyIcon />}
             />
-          </OutputContainer>
-        </TranslateInputWrapper>
+          </OperationBar>
+
+          <OutputText>{result || t('translate.output.placeholder')}</OutputText>
+        </OutputContainer>
       </ContentContainer>
     </Container>
   )
 }
 
 const Container = styled.div`
-  display: flex;
   flex: 1;
-  flex-direction: column;
-  height: 100%;
 `
 
-const ContentContainer = styled.div`
-  display: flex;
+const ContentContainer = styled.div<{ $historyDrawerVisible: boolean }>`
+  height: calc(100vh - var(--navbar-height));
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
   flex: 1;
-  flex-direction: column;
-  height: 100%;
-  padding: 20px;
-`
-
-const MenuContainer = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 15px;
-  gap: 20px;
-`
-
-const TranslateInputWrapper = styled.div`
-  display: flex;
-  flex-direction: row;
-  min-height: 350px;
-  gap: 20px;
+  padding: 20px 15px;
+  position: relative;
 `
 
 const InputContainer = styled.div`
@@ -214,52 +319,136 @@ const InputContainer = styled.div`
   display: flex;
   flex: 1;
   flex-direction: column;
-  height: 100%;
   border: 1px solid var(--color-border-soft);
   border-radius: 10px;
+  padding-bottom: 5px;
+  padding-right: 2px;
+  margin-right: 15px;
+`
+
+const OperationBar = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 8px 10px 10px;
 `
 
 const Textarea = styled(TextArea)`
   display: flex;
   flex: 1;
-  padding: 20px;
   font-size: 16px;
-  overflow: auto;
+  border-radius: 0;
   .ant-input {
     resize: none;
-    padding: 15px 20px;
+    padding: 5px 16px;
+  }
+  .ant-input-clear-icon {
+    font-size: 16px;
   }
 `
 
 const OutputContainer = styled.div`
+  min-height: 0;
   position: relative;
   display: flex;
-  flex: 1;
   flex-direction: column;
-  height: 100%;
-  padding: 10px;
   background-color: var(--color-background-soft);
   border-radius: 10px;
+  padding-bottom: 5px;
+  padding-right: 2px;
 `
 
 const OutputText = styled.div`
-  padding: 5px 10px;
-  max-height: calc(100vh - var(--navbar-height) - 120px);
-  overflow: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 5px 16px;
+  overflow-y: auto;
   white-space: pre-wrap;
 `
 
-const TranslateButton = styled(Button)`
-  position: absolute;
-  right: 15px;
-  bottom: 15px;
-  z-index: 10;
+const TranslateButton = styled(Button)``
+
+const CopyButton = styled(Button)``
+
+const HistoryContainner = styled.div<{ $historyDrawerVisible: boolean }>`
+  width: ${({ $historyDrawerVisible }) => ($historyDrawerVisible ? '300px' : '0')};
+  height: calc(100vh - var(--navbar-height) - 40px);
+  transition:
+    width 0.2s,
+    opacity 0.2s;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 10px;
+  margin-right: 15px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-right: 2px;
+  padding-bottom: 5px;
+
+  ${({ $historyDrawerVisible }) =>
+    !$historyDrawerVisible &&
+    `
+    border: none;
+    margin-right: 0;
+    opacity: 0;
+  `}
 `
 
-const CopyButton = styled(Button)`
-  position: absolute;
-  right: 15px;
-  bottom: 15px;
+const HistoryList = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding: 0 5px;
+`
+
+const HistoryListItem = styled.div`
+  width: 100%;
+  padding: 5px 10px;
+  border-radius: var(--list-item-border-radius);
+  cursor: pointer;
+  transition: background-color 0.2s;
+  position: relative;
+
+  button {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  &:hover {
+    background-color: var(--color-background-mute);
+    button {
+      opacity: 1;
+    }
+  }
+
+  &:not(:last-child)::after {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 1px;
+    border-bottom: 1px dashed var(--color-border-soft);
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+  }
+`
+
+const HistoryListItemTitle = styled.div`
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+`
+
+const HistoryListItemDate = styled.div`
+  font-size: 12px;
+  color: var(--color-text-3);
 `
 
 export default TranslatePage

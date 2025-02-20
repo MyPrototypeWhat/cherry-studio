@@ -51,6 +51,7 @@
       "settings.reasoning_effort.high": "high",
       "settings.reasoning_effort.low": "low",
       "settings.reasoning_effort.medium": "medium",
+      "settings.reasoning_effort.off": "off",
       "settings.reasoning_effort.tip": "Only supports reasoning models",
       "title": "Assistants"
     },
@@ -120,6 +121,8 @@
       "settings.top_p.tip": "Default value is 1, the smaller the value, the less variety in the answers, the easier to understand, the larger the value, the larger the range of the AI's vocabulary, the more diverse",
       "settings.max_tokens.confirm": "Enable max tokens limit",
       "settings.max_tokens.confirm_content": "Enable max tokens limit, affects the length of the result. Need to consider the context limit of the model, otherwise an error will be reported",
+      "settings.thought_auto_collapse": "Automatically Collapse Thought Content",
+      "settings.thought_auto_collapse.tip": "Automatically collapse thought content after thinking ends",
       "suggestions.title": "Suggested Questions",
       "thinking": "Thinking",
       "topics.auto_rename": "Auto Rename",
@@ -139,7 +142,9 @@
       "translate": "Translate",
       "topics.prompt": "Topic Prompts",
       "topics.prompt.tips": "Topic Prompts: Additional supplementary prompts provided for the current topic",
-      "topics.prompt.edit.title": "Edit Topic Prompts"
+      "topics.prompt.edit.title": "Edit Topic Prompts",
+      "artifacts.button.openExternal": "Open in external browser",
+      "artifacts.preview.openExternal.error.content": "Error opening the external browser."
     },
     "common": {
       "add": "Add",
@@ -314,7 +319,8 @@
       "korean": "Korean",
       "portuguese": "Portuguese",
       "russian": "Russian",
-      "spanish": "Spanish"
+      "spanish": "Spanish",
+      "german": "German"
     },
     "mermaid": {
       "download": {
@@ -330,6 +336,18 @@
         "source": "Source"
       },
       "title": "Mermaid Diagram"
+    },
+    "plantuml": {
+      "download": {
+        "png": "Download PNG",
+        "svg": "Download SVG",
+        "failed": "Download failed, please check the network"
+      },
+      "tabs": {
+        "preview": "Preview",
+        "source": "Source"
+      },
+      "title": "PlantUML Diagram"
     },
     "message": {
       "api.check.model.title": "Select the model to use for detection",
@@ -352,7 +370,7 @@
       "error.invalid.enter.model": "Please select a model",
       "error.invalid.proxy.url": "Invalid proxy URL",
       "error.invalid.webdav": "Invalid WebDAV settings",
-      "error.notion.export": "Notion import failed",
+      "error.notion.export": "Failed to export to Notion. Please check connection status and configuration according to documentation",
       "error.notion.no_api_key": "Notion ApiKey or Notion DatabaseID is not configured",
       "group.delete.content": "Deleting a group message will delete the user's question and all assistant's answers",
       "group.delete.title": "Delete Group Message",
@@ -374,13 +392,13 @@
       "reset.double.confirm.title": "DATA LOST !!!",
       "restore.success": "Restored successfully",
       "save.success.title": "Saved successfully",
-      "success.notion.export": "Notion import successful",
+      "success.notion.export": "Successfully exported to Notion",
       "switch.disabled": "Please wait for the current reply to complete",
       "topic.added": "New topic added",
       "upgrade.success.button": "Restart",
       "upgrade.success.content": "Please restart the application to complete the upgrade",
       "upgrade.success.title": "Upgrade successfully",
-      "warn.notion.exporting": "Notion is importing, please do not import repeatedly",
+      "warn.notion.exporting": "Exporting to Notion, please do not request export repeatedly!",
       "error.invalid.api.host": "Invalid API Host",
       "error.invalid.api.key": "Invalid API Key"
     },
@@ -563,35 +581,42 @@
         "notion.api_key_placeholder": "Enter Notion API Key",
         "notion.database_id": "Notion Database ID",
         "notion.database_id_placeholder": "Enter Notion Database ID",
+        "notion.page_name_key": "Page Title Field Name",
+        "notion.page_name_key_placeholder": "Enter page title field name, default is Name",
         "notion.title": "Notion Configuration",
+        "notion.help": "Notion Configuration Documentation",
         "notion.check": {
           "button": "Check",
-          "fail": "Connection failed, please check the configuration",
+          "fail": "Connection failed, please check network and Api_key and Database_id",
           "success": "Connection successful",
-          "error": "Connection error, please check the network",
+          "error": "Connection error, please check network configuration and Api_key and Database_id",
           "empty_api_key": "Api_key is not configured",
           "empty_database_id": "Database_id is not configured"
         },
         "title": "Data Settings",
-        "webdav.autoSync": "Auto Backup",
-        "webdav.autoSync.off": "Off",
-        "webdav.backup.button": "Backup to WebDAV",
-        "webdav.host": "WebDAV Host",
-        "webdav.host.placeholder": "http://localhost:8080",
-        "webdav.hours": "Hours",
-        "webdav.lastSync": "Last Backup",
-        "webdav.minutes": "Minutes",
-        "webdav.noSync": "Waiting for next backup",
-        "webdav.password": "WebDAV Password",
-        "webdav.path": "WebDAV Path",
-        "webdav.path.placeholder": "/backup",
-        "webdav.restore.button": "Restore from WebDAV",
-        "webdav.restore.content": "Restore from WebDAV will overwrite the current data, continue?",
-        "webdav.restore.title": "Restore from WebDAV",
-        "webdav.syncError": "Backup Error",
-        "webdav.syncStatus": "Backup Status",
-        "webdav.title": "WebDAV",
-        "webdav.user": "WebDAV User"
+        "webdav": {
+          "autoSync": "Auto Backup",
+          "autoSync.off": "Off",
+          "backup.button": "Backup to WebDAV",
+          "host": "WebDAV Host",
+          "host.placeholder": "http://localhost:8080",
+          "minute_interval_one": "{{count}} minute",
+          "minute_interval_other": "{{count}} minutes",
+          "hour_interval_one": "{{count}} hour",
+          "hour_interval_other": "{{count}} hours",
+          "lastSync": "Last Backup",
+          "noSync": "Waiting for next backup",
+          "password": "WebDAV Password",
+          "path": "WebDAV Path",
+          "path.placeholder": "/backup",
+          "restore.button": "Restore from WebDAV",
+          "restore.content": "Restore from WebDAV will overwrite the current data, continue?",
+          "restore.title": "Restore from WebDAV",
+          "syncError": "Backup Error",
+          "syncStatus": "Backup Status",
+          "title": "WebDAV",
+          "user": "WebDAV User"
+        }
       },
       "display.custom.css": "Custom CSS",
       "display.custom.css.placeholder": "/* Put custom CSS here */",
@@ -734,7 +759,8 @@
         "toggle_show_topics": "Toggle Topics",
         "zoom_in": "Zoom In",
         "zoom_out": "Zoom Out",
-        "zoom_reset": "Reset Zoom"
+        "zoom_reset": "Reset Zoom",
+        "show_settings": "Open Settings"
       },
       "theme.auto": "Auto",
       "theme.dark": "Dark",
@@ -763,7 +789,14 @@
       "input.placeholder": "Enter text to translate",
       "output.placeholder": "Translation",
       "processing": "Translation in progress...",
-      "title": "Translation"
+      "title": "Translation",
+      "history": {
+        "title": "Translation History",
+        "empty": "No translation history",
+        "clear": "Clear History",
+        "delete": "Delete",
+        "clear_description": "Clear history will delete all translation history, continue?"
+      }
     },
     "tray": {
       "quit": "Quit",

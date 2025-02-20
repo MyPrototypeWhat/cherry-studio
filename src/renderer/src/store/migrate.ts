@@ -1074,6 +1074,30 @@ const migrateConfig = {
     state.settings.gridColumns = 2
     state.settings.gridPopoverTrigger = 'hover'
     return state
+  },
+  '70': (state: RootState) => {
+    state.llm.providers.forEach((provider) => {
+      if (provider.id === 'dmxapi') {
+        provider.apiHost = 'https://www.dmxapi.cn'
+      }
+    })
+    return state
+  },
+  '71': (state: RootState) => {
+    const appIds = ['dify', 'wpslingxi', 'lechat', 'abacus', 'lambdachat']
+
+    if (state.minapps) {
+      appIds.forEach((id) => {
+        const app = DEFAULT_MIN_APPS.find((app) => app.id === id)
+        if (app) {
+          state.minapps.enabled.push(app)
+        }
+      })
+    }
+
+    state.settings.thoughtAutoCollapse = true
+
+    return state
   }
 }
 

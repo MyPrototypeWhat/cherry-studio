@@ -27,7 +27,8 @@ import {
   setPasteLongTextThreshold,
   setRenderInputMessageAsMarkdown,
   setShowInputEstimatedTokens,
-  setShowMessageDivider
+  setShowMessageDivider,
+  setThoughtAutoCollapse
 } from '@renderer/store/settings'
 import { Assistant, AssistantSettings, ThemeMode, TranslateLanguageVarious } from '@renderer/types'
 import { modalConfirm } from '@renderer/utils'
@@ -42,7 +43,7 @@ interface Props {
 
 const SettingsTab: FC<Props> = (props) => {
   const { assistant, updateAssistantSettings, updateAssistant } = useAssistant(props.assistant.id)
-  const { messageStyle, codeStyle, fontSize, language, gridColumns } = useSettings()
+  const { messageStyle, codeStyle, fontSize, language } = useSettings()
 
   const [temperature, setTemperature] = useState(assistant?.settings?.temperature ?? DEFAULT_TEMPERATURE)
   const [contextCount, setContextCount] = useState(assistant?.settings?.contextCount ?? DEFAULT_CONTEXTCOUNT)
@@ -70,7 +71,7 @@ const SettingsTab: FC<Props> = (props) => {
     autoTranslateWithSpace,
     pasteLongTextThreshold,
     multiModelMessageStyle,
-    gridPopoverTrigger
+    thoughtAutoCollapse
   } = useSettings()
 
   const onUpdateAssistantSettings = (settings: Partial<AssistantSettings>) => {
@@ -259,6 +260,20 @@ const SettingsTab: FC<Props> = (props) => {
             size="small"
             checked={codeCollapsible}
             onChange={(checked) => dispatch(setCodeCollapsible(checked))}
+          />
+        </SettingRow>
+        <SettingDivider />
+        <SettingRow>
+          <SettingRowTitleSmall>
+            {t('chat.settings.thought_auto_collapse')}
+            <Tooltip title={t('chat.settings.thought_auto_collapse.tip')}>
+              <QuestionIcon style={{ marginLeft: 4 }} />
+            </Tooltip>
+          </SettingRowTitleSmall>
+          <Switch
+            size="small"
+            checked={thoughtAutoCollapse}
+            onChange={(checked) => dispatch(setThoughtAutoCollapse(checked))}
           />
         </SettingRow>
         <SettingDivider />

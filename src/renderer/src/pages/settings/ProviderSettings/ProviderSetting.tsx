@@ -10,7 +10,7 @@ import {
 import { HStack } from '@renderer/components/Layout'
 import ModelTags from '@renderer/components/ModelTags'
 import OAuthButton from '@renderer/components/OAuth/OAuthButton'
-import { EMBEDDING_REGEX, getModelLogo, REASONING_REGEX, VISION_REGEX } from '@renderer/config/models'
+import { getModelLogo, isEmbeddingModel, isReasoningModel, isVisionModel } from '@renderer/config/models'
 import { PROVIDER_CONFIG } from '@renderer/config/providers'
 import { useTheme } from '@renderer/context/ThemeProvider'
 import { useAssistants, useDefaultModel } from '@renderer/hooks/useAssistant'
@@ -192,9 +192,9 @@ const ProviderSetting: FC<Props> = ({ provider: _provider }) => {
   const modelTypeContent = (model: Model) => {
     // 获取默认选中的类型
     const defaultTypes = [
-      ...(VISION_REGEX.test(model.id) ? ['vision'] : []),
-      ...(EMBEDDING_REGEX.test(model.id) ? ['embedding'] : []),
-      ...(REASONING_REGEX.test(model.id) ? ['reasoning'] : [])
+      ...(isVisionModel(model) ? ['vision'] : []),
+      ...(isEmbeddingModel(model) ? ['embedding'] : []),
+      ...(isReasoningModel(model) ? ['reasoning'] : [])
     ] as ModelType[]
 
     // 合并现有选择和默认类型
@@ -206,9 +206,21 @@ const ProviderSetting: FC<Props> = ({ provider: _provider }) => {
           value={selectedTypes}
           onChange={(types) => onUpdateModelTypes(model, types as ModelType[])}
           options={[
-            { label: t('models.type.vision'), value: 'vision', disabled: VISION_REGEX.test(model.id) },
-            { label: t('models.type.embedding'), value: 'embedding', disabled: EMBEDDING_REGEX.test(model.id) },
-            { label: t('models.type.reasoning'), value: 'reasoning', disabled: REASONING_REGEX.test(model.id) }
+            {
+              label: t('models.type.vision'),
+              value: 'vision',
+              disabled: isVisionModel(model)
+            },
+            {
+              label: t('models.type.embedding'),
+              value: 'embedding',
+              disabled: isEmbeddingModel(model)
+            },
+            {
+              label: t('models.type.reasoning'),
+              value: 'reasoning',
+              disabled: isReasoningModel(model)
+            }
           ]}
         />
       </div>

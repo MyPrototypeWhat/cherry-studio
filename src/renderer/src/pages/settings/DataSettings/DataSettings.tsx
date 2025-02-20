@@ -5,9 +5,9 @@ import MinApp from '@renderer/components/MinApp'
 import { useTheme } from '@renderer/context/ThemeProvider'
 import { backup, reset, restore } from '@renderer/services/BackupService'
 import { RootState, useAppDispatch } from '@renderer/store'
-import { setNotionApiKey, setNotionDatabaseID } from '@renderer/store/settings'
+import { setNotionApiKey, setNotionDatabaseID, setNotionPageNameKey } from '@renderer/store/settings'
 import { AppInfo } from '@renderer/types'
-import { Button, Modal, Typography } from 'antd'
+import { Button, Modal, Tooltip, Typography } from 'antd'
 import Input from 'antd/es/input/Input'
 import { FC, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -23,10 +23,9 @@ const NotionSettings: FC = () => {
   const { theme } = useTheme()
   const dispatch = useAppDispatch()
 
-  // 这里可以添加 Notion 相关的状态和逻辑
-  // 例如：
   const notionApiKey = useSelector((state: RootState) => state.settings.notionApiKey)
   const notionDatabaseID = useSelector((state: RootState) => state.settings.notionDatabaseID)
+  const notionPageNameKey = useSelector((state: RootState) => state.settings.notionPageNameKey)
 
   const handleNotionTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     dispatch(setNotionApiKey(e.target.value))
@@ -35,6 +34,11 @@ const NotionSettings: FC = () => {
   const handleNotionDatabaseIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     dispatch(setNotionDatabaseID(e.target.value))
   }
+
+  const handleNotionPageNameKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    dispatch(setNotionPageNameKey(e.target.value))
+  }
+
   const handleNotionConnectionCheck = () => {
     if (notionApiKey === null) {
       window.message.error(t('settings.data.notion.check.empty_api_key'))
@@ -73,15 +77,17 @@ const NotionSettings: FC = () => {
     <SettingGroup theme={theme}>
       <SettingTitle style={{ justifyContent: 'flex-start', gap: 10 }}>
         {t('settings.data.notion.title')}
-        <InfoCircleOutlined
-          style={{ color: 'var(--color-text-2)', cursor: 'pointer' }}
-          onClick={handleNotionTitleClick}
-        />
+        <Tooltip title={t('settings.data.notion.help')} placement="right">
+          <InfoCircleOutlined
+            style={{ color: 'var(--color-text-2)', cursor: 'pointer' }}
+            onClick={handleNotionTitleClick}
+          />
+        </Tooltip>
       </SettingTitle>
       <SettingDivider />
       <SettingRow>
         <SettingRowTitle>{t('settings.data.notion.database_id')}</SettingRowTitle>
-        <HStack alignItems="center" gap="5px">
+        <HStack alignItems="center" gap="5px" style={{ width: 315 }}>
           <Input
             type="text"
             value={notionDatabaseID || ''}
@@ -94,8 +100,22 @@ const NotionSettings: FC = () => {
       </SettingRow>
       <SettingDivider />
       <SettingRow>
+        <SettingRowTitle>{t('settings.data.notion.page_name_key')}</SettingRowTitle>
+        <HStack alignItems="center" gap="5px" style={{ width: 315 }}>
+          <Input
+            type="text"
+            value={notionPageNameKey || ''}
+            onChange={handleNotionPageNameKeyChange}
+            onBlur={handleNotionPageNameKeyChange}
+            style={{ width: 315 }}
+            placeholder={t('settings.data.notion.page_name_key_placeholder')}
+          />
+        </HStack>
+      </SettingRow>
+      <SettingDivider />
+      <SettingRow>
         <SettingRowTitle>{t('settings.data.notion.api_key')}</SettingRowTitle>
-        <HStack alignItems="center" gap="5px">
+        <HStack alignItems="center" gap="5px" style={{ width: 315 }}>
           <Input
             type="password"
             value={notionApiKey || ''}
@@ -104,9 +124,7 @@ const NotionSettings: FC = () => {
             style={{ width: 250 }}
             placeholder={t('settings.data.notion.api_key_placeholder')}
           />
-          <Button onClick={handleNotionConnectionCheck} style={{ width: 60 }}>
-            {t('settings.data.notion.check.button')}
-          </Button>
+          <Button onClick={handleNotionConnectionCheck}>{t('settings.data.notion.check.button')}</Button>
         </HStack>
       </SettingRow>
       <SettingDivider /> {/* 添加分割线 */}

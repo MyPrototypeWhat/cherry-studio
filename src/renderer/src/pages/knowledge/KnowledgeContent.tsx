@@ -53,6 +53,7 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
     addSitemap,
     removeItem,
     getProcessingStatus,
+    getDirectoryProcessingPercent,
     addNote,
     addDirectory
   } = useKnowledge(selectedBase.id || '')
@@ -63,6 +64,8 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
   if (!base) {
     return null
   }
+
+  const progressingPercent = getDirectoryProcessingPercent(base?.id)
 
   const handleAddFile = () => {
     if (disabled) {
@@ -239,7 +242,7 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
                 <FlexAlignCenter>
                   {item.uniqueId && <Button type="text" icon={<RefreshIcon />} onClick={() => refreshItem(item)} />}
                   <StatusIconWrapper>
-                    <StatusIcon sourceId={item.id} base={base} getProcessingStatus={getProcessingStatus} />
+                    <StatusIcon sourceId={item.id} base={base} getProcessingStatus={getProcessingStatus} type="file" />
                   </StatusIconWrapper>
                   <Button type="text" danger onClick={() => removeItem(item)} icon={<DeleteOutlined />} />
                 </FlexAlignCenter>
@@ -271,7 +274,13 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
                 <FlexAlignCenter>
                   {item.uniqueId && <Button type="text" icon={<RefreshIcon />} onClick={() => refreshItem(item)} />}
                   <StatusIconWrapper>
-                    <StatusIcon sourceId={item.id} base={base} getProcessingStatus={getProcessingStatus} />
+                    <StatusIcon
+                      sourceId={item.id}
+                      base={base}
+                      getProcessingStatus={getProcessingStatus}
+                      progressingPercent={progressingPercent}
+                      type="directory"
+                    />
                   </StatusIconWrapper>
                   <Button type="text" danger onClick={() => removeItem(item)} icon={<DeleteOutlined />} />
                 </FlexAlignCenter>
@@ -303,7 +312,7 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
                 <FlexAlignCenter>
                   {item.uniqueId && <Button type="text" icon={<RefreshIcon />} onClick={() => refreshItem(item)} />}
                   <StatusIconWrapper>
-                    <StatusIcon sourceId={item.id} base={base} getProcessingStatus={getProcessingStatus} />
+                    <StatusIcon sourceId={item.id} base={base} getProcessingStatus={getProcessingStatus} type="url" />
                   </StatusIconWrapper>
                   <Button type="text" danger onClick={() => removeItem(item)} icon={<DeleteOutlined />} />
                 </FlexAlignCenter>
@@ -335,7 +344,12 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
                 <FlexAlignCenter>
                   {item.uniqueId && <Button type="text" icon={<RefreshIcon />} onClick={() => refreshItem(item)} />}
                   <StatusIconWrapper>
-                    <StatusIcon sourceId={item.id} base={base} getProcessingStatus={getProcessingStatus} />
+                    <StatusIcon
+                      sourceId={item.id}
+                      base={base}
+                      getProcessingStatus={getProcessingStatus}
+                      type="sitemap"
+                    />
                   </StatusIconWrapper>
                   <Button type="text" danger onClick={() => removeItem(item)} icon={<DeleteOutlined />} />
                 </FlexAlignCenter>
@@ -362,7 +376,7 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
                 <FlexAlignCenter>
                   <Button type="text" onClick={() => handleEditNote(note)} icon={<EditOutlined />} />
                   <StatusIconWrapper>
-                    <StatusIcon sourceId={note.id} base={base} getProcessingStatus={getProcessingStatus} />
+                    <StatusIcon sourceId={note.id} base={base} getProcessingStatus={getProcessingStatus} type="note" />
                   </StatusIconWrapper>
                   <Button type="text" danger onClick={() => removeItem(note)} icon={<DeleteOutlined />} />
                 </FlexAlignCenter>

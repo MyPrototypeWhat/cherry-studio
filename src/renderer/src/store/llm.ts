@@ -37,6 +37,16 @@ const initialState: LlmState = {
       enabled: true
     },
     {
+      id: 'o3',
+      name: 'O3',
+      type: 'openai',
+      apiKey: '',
+      apiHost: 'https://api.o3.fan',
+      models: SYSTEM_MODELS.o3,
+      isSystem: true,
+      enabled: false
+    },
+    {
       id: 'aihubmix',
       name: 'AiHubMix',
       type: 'openai',
@@ -386,16 +396,6 @@ const initialState: LlmState = {
       models: SYSTEM_MODELS.infini,
       isSystem: true,
       enabled: false
-    },
-    {
-      id: 'lmstudio',
-      name: 'LM Studio',
-      type: 'openai',
-      apiKey: '',
-      apiHost: 'http://localhost:1234',
-      models: SYSTEM_MODELS.lmstudio,
-      isSystem: true,
-      enabled: true
     },
     {
       id: 'modelscope',

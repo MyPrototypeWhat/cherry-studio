@@ -87,7 +87,10 @@ class KnowledgeService {
 
     const sendDirectoryProcessingPercent = (totalFiles: number, processedFiles: number) => {
       const mainWindow = windowService.getMainWindow()
-      mainWindow?.webContents.send(base.id, (processedFiles / totalFiles) * 100)
+      mainWindow?.webContents.send('directory-processing-percent', {
+        itemId: item.id,
+        percent: (processedFiles / totalFiles) * 100
+      })
     }
 
     if (item.type === 'directory') {
@@ -95,15 +98,20 @@ class KnowledgeService {
       const files = getAllFiles(directory)
       const totalFiles = files.length
       let processedFiles = 0
+
       const loaderPromises = files.map(async (file) => {
         const result = await addFileLoader(ragApplication, file, base, forceReload)
         processedFiles++
-
         sendDirectoryProcessingPercent(totalFiles, processedFiles)
         return result
       })
-      const loaderResults = await Promise.all(loaderPromises)
-      const uniqueIds = loaderResults.map((result) => result.uniqueId)
+
+      const loaderResults = await Promise.allSettled(loaderPromises)
+      // @ts-ignore uniqueId
+      const uniqueIds = loaderResults
+        .filter((result) => result.status === 'fulfilled')
+        .map((result) => result.value.uniqueId)
+
       return {
         entriesAdded: loaderResults.length,
         uniqueId: `DirectoryLoader_${uuidv4()}`,

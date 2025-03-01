@@ -49,26 +49,25 @@ const Markdown: FC<Props> = ({ message }) => {
   }
 
   return (
-    <MarkdownShadowDOMRenderer>
-      <ReactMarkdown
-        rehypePlugins={rehypePlugins}
-        remarkPlugins={[remarkMath, remarkGfm]}
-        className="markdown"
-        components={
-          {
-            a: Link,
-            code: CodeBlock,
-            img: ImagePreview
-          } as Partial<Components>
-        }
-        remarkRehypeOptions={{
-          footnoteLabel: t('common.footnotes'),
-          footnoteLabelTagName: 'h4',
-          footnoteBackContent: ' '
-        }}>
-        {messageContent}
-      </ReactMarkdown>
-    </MarkdownShadowDOMRenderer>
+    <ReactMarkdown
+      rehypePlugins={rehypePlugins}
+      remarkPlugins={[remarkMath, remarkGfm]}
+      className="markdown"
+      components={
+        {
+          style: MarkdownShadowDOMRenderer,
+          a: Link,
+          code: CodeBlock,
+          img: ImagePreview
+        } as Partial<Components>
+      }
+      remarkRehypeOptions={{
+        footnoteLabel: t('common.footnotes'),
+        footnoteLabelTagName: 'h4',
+        footnoteBackContent: ' '
+      }}>
+      {messageContent}
+    </ReactMarkdown>
   )
 }
 

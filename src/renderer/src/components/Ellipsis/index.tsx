@@ -18,6 +18,7 @@ const multiLineEllipsis = css<{ $maxLine: number }>`
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: ${({ $maxLine }) => $maxLine};
+  overflow-wrap: break-word;
 `
 
 const singleLineEllipsis = css`

@@ -263,9 +263,9 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
                 <ItemInfo>
                   <FileIcon />
                   <ClickableSpan onClick={() => window.api.file.openPath(file.path)}>
-                    <Tooltip title={file.origin_name}>
-                      <Ellipsis text={file.origin_name} />
-                    </Tooltip>
+                    <Ellipsis>
+                      <Tooltip title={file.origin_name}>{file.origin_name}</Tooltip>
+                    </Ellipsis>
                   </ClickableSpan>
                 </ItemInfo>
                 <FlexAlignCenter>
@@ -295,9 +295,9 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
                 <ItemInfo>
                   <FolderOutlined />
                   <ClickableSpan onClick={() => window.api.file.openPath(item.content as string)}>
-                    <Tooltip title={item.content as string}>
-                      <Ellipsis text={item.content as string} />
-                    </Tooltip>
+                    <Ellipsis>
+                      <Tooltip title={item.content as string}>{item.content as string}</Tooltip>
+                    </Ellipsis>
                   </ClickableSpan>
                 </ItemInfo>
                 <FlexAlignCenter>
@@ -353,11 +353,11 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
                       ]
                     }}
                     trigger={['contextMenu']}>
-                    <a href={item.content as string} target="_blank" rel="noopener noreferrer">
-                      <Tooltip title={item.content as string}>
-                        <Ellipsis text={item.remark || (item.content as string)} />
-                      </Tooltip>
-                    </a>
+                    <Ellipsis>
+                      <a href={item.content as string} target="_blank" rel="noopener noreferrer">
+                        <Tooltip title={item.content as string}>{item.remark || (item.content as string)}</Tooltip>
+                      </a>
+                    </Ellipsis>
                   </Dropdown>
                 </ItemInfo>
                 <FlexAlignCenter>
@@ -388,7 +388,7 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
                   <GlobalOutlined />
                   <a href={item.content as string} target="_blank" rel="noopener noreferrer">
                     <Tooltip title={item.content as string}>
-                      <Ellipsis text={item.content as string} />
+                      <Ellipsis>{item.content as string}</Ellipsis>
                     </Tooltip>
                   </a>
                 </ItemInfo>
@@ -570,6 +570,8 @@ const FlexAlignCenter = styled.div`
 
 const ClickableSpan = styled.span`
   cursor: pointer;
+  flex: 1;
+  width: 0;
 `
 
 const FileIcon = styled(FileTextOutlined)`

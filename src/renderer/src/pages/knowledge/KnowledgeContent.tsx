@@ -353,11 +353,15 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
                       ]
                     }}
                     trigger={['contextMenu']}>
-                    <Ellipsis>
-                      <a href={item.content as string} target="_blank" rel="noopener noreferrer">
-                        <Tooltip title={item.content as string}>{item.remark || (item.content as string)}</Tooltip>
-                      </a>
-                    </Ellipsis>
+                    <ClickableSpan>
+                      <Tooltip title={item.content as string}>
+                        <Ellipsis>
+                          <a href={item.content as string} target="_blank" rel="noopener noreferrer">
+                            {item.remark || (item.content as string)}
+                          </a>
+                        </Ellipsis>
+                      </Tooltip>
+                    </ClickableSpan>
                   </Dropdown>
                 </ItemInfo>
                 <FlexAlignCenter>
@@ -386,11 +390,15 @@ const KnowledgeContent: FC<KnowledgeContentProps> = ({ selectedBase }) => {
               <ItemContent>
                 <ItemInfo>
                   <GlobalOutlined />
-                  <a href={item.content as string} target="_blank" rel="noopener noreferrer">
+                  <ClickableSpan>
                     <Tooltip title={item.content as string}>
-                      <Ellipsis>{item.content as string}</Ellipsis>
+                      <Ellipsis>
+                        <a href={item.content as string} target="_blank" rel="noopener noreferrer">
+                          {item.content as string}
+                        </a>
+                      </Ellipsis>
                     </Tooltip>
-                  </a>
+                  </ClickableSpan>
                 </ItemInfo>
                 <FlexAlignCenter>
                   {item.uniqueId && <Button type="text" icon={<RefreshIcon />} onClick={() => refreshItem(item)} />}
@@ -530,13 +538,6 @@ const ItemInfo = styled.div`
   align-items: center;
   gap: 8px;
   flex: 1;
-
-  a {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 600px;
-  }
 `
 
 const IndexSection = styled.div`

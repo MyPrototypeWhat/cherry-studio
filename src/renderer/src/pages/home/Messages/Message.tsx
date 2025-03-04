@@ -2,12 +2,11 @@ import { FONT_FAMILY } from '@renderer/config/constant'
 import { useAssistant } from '@renderer/hooks/useAssistant'
 import { useModel } from '@renderer/hooks/useModel'
 import { useMessageStyle, useSettings } from '@renderer/hooks/useSettings'
-import { useTopic } from '@renderer/hooks/useTopic'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { getContextCount, getMessageModelId } from '@renderer/services/MessagesService'
 import { getModelUniqId } from '@renderer/services/ModelService'
 import { estimateHistoryTokens, estimateMessageUsage } from '@renderer/services/TokenService'
-import { useAppDispatch, useAppSelector } from '@renderer/store'
+import { useAppDispatch } from '@renderer/store'
 import { updateMessages } from '@renderer/store/messages'
 import { Assistant, Message, Topic } from '@renderer/types'
 import { classNames, runAsyncFunction } from '@renderer/utils'
@@ -46,36 +45,24 @@ const getMessageBackground = (isBubbleStyle: boolean, isAssistantMessage: boolea
 }
 
 const MessageItem: FC<Props> = ({
-  message: _message,
-  topic: _topic,
-  assistant: _assistant,
+  message,
+  topic,
+  // assistant,
   index,
   hidePresetMessages,
   isGrouped,
   isStreaming = false,
   style,
   onDeleteMessage,
-  onSetMessages,
   onGetMessages
 }) => {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
-  const { assistant, setModel } = useAssistant(_message.assistantId)
-  const model = useModel(getMessageModelId(_message), _message.model?.provider) || _message.model
+  const { assistant, setModel } = useAssistant(message.assistantId)
+  const model = useModel(getMessageModelId(message), message.model?.provider) || message.model
   const { isBubbleStyle } = useMessageStyle()
   const { showMessageDivider, messageFont, fontSize } = useSettings()
   const messageContainerRef = useRef<HTMLDivElement>(null)
-  const topic = useTopic(assistant, _topic?.id)
-
-  const message = isStreaming
-    ? _message
-    : useAppSelector((state) => {
-        const topicMessages = state.messages.messagesByTopic[_message.topicId]
-        if (!topicMessages) return _message
-
-        const messages = [...topicMessages.userMessages, ...topicMessages.assistantMessages]
-        return messages.find((m) => m.id === _message.id) || _message
-      })
 
   const isLastMessage = index === 0
   const isAssistantMessage = message.role === 'assistant'

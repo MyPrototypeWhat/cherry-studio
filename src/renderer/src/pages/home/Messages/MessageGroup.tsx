@@ -9,8 +9,8 @@ import { memo, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 
-import MessageItem from './Message'
 import MessageGroupMenuBar from './MessageGroupMenuBar'
+import MessageStream from './MessageStream'
 
 interface Props {
   messages: (Message & { index: number })[]
@@ -88,7 +88,7 @@ const MessageGroup = ({
           $isGrouped={isGrouped}
           key={message.id}
           className={message.role === 'assistant' && isHorizontal && isGrouped ? 'group-message-wrapper' : ''}>
-          <MessageItem {...messageProps} />
+          <MessageStream {...messageProps} />
         </MessageWrapper>
       )
 
@@ -102,7 +102,7 @@ const MessageGroup = ({
                 $selected={index === selectedIndex}
                 $isGrouped={isGrouped}
                 $isInPopover={true}>
-                <MessageItem {...messageProps} />
+                <MessageStream {...messageProps} />
               </MessageWrapper>
             }
             trigger={gridPopoverTrigger}

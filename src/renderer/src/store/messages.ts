@@ -123,7 +123,19 @@ const messagesSlice = createSlice({
       const { topicId } = action.payload
       const streamMessage = state.streamMessagesByTopic[topicId]
       if (streamMessage && streamMessage.role === 'assistant') {
-        state.messagesByTopic[topicId].assistantMessages.push(streamMessage)
+        // 查找是否已经存在具有相同askId的助手消息
+        const existingMessageIndex = state.messagesByTopic[topicId].assistantMessages.findIndex(
+          (m) => m.askId === streamMessage.askId
+        )
+
+        if (existingMessageIndex !== -1) {
+          // 替换已有的消息
+          state.messagesByTopic[topicId].assistantMessages[existingMessageIndex] = streamMessage
+        } else {
+          // 如果不存在，则添加新消息
+          state.messagesByTopic[topicId].assistantMessages.push(streamMessage)
+        }
+
         state.streamMessagesByTopic[topicId] = null
       }
     },

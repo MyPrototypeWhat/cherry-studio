@@ -210,7 +210,6 @@ export async function fetchSuggestions({
   assistant: Assistant
 }): Promise<Suggestion[]> {
   const model = assistant.model
-  console.log('model', model)
   if (!model) {
     return []
   }

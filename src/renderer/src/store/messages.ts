@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { createSelector } from '@reduxjs/toolkit'
 import db from '@renderer/databases'
 import { fetchChatCompletion } from '@renderer/services/ApiService'
+import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { getAssistantMessage, getUserMessage } from '@renderer/services/MessagesService'
 import { AppDispatch, RootState } from '@renderer/store'
 import { Assistant, FileType, Message, Model, Topic } from '@renderer/types'
@@ -28,6 +29,7 @@ export interface TopicMessages {
 
 export interface MessagesState {
   messagesByTopic: Record<string, TopicMessages>
+  streamMessagesByTopic: Record<string, Message | null>
   currentTopic: string
   loading: boolean
   displayCount: number
@@ -36,6 +38,7 @@ export interface MessagesState {
 
 const initialState: MessagesState = {
   messagesByTopic: {},
+  streamMessagesByTopic: {},
   currentTopic: '',
   loading: false,
   displayCount: 20,
@@ -105,6 +108,28 @@ const messagesSlice = createSlice({
         userMessages: messages.filter((msg) => msg.role === 'user'),
         assistantMessages: messages.filter((msg) => msg.role === 'assistant')
       }
+    },
+    setStreamMessage: (
+      state,
+      action: PayloadAction<{
+        topicId: string
+        message: Message | null
+      }>
+    ) => {
+      const { topicId, message } = action.payload
+      state.streamMessagesByTopic[topicId] = message
+    },
+    commitStreamMessage: (state, action: PayloadAction<{ topicId: string }>) => {
+      const { topicId } = action.payload
+      const streamMessage = state.streamMessagesByTopic[topicId]
+      if (streamMessage && streamMessage.role === 'assistant') {
+        state.messagesByTopic[topicId].assistantMessages.push(streamMessage)
+        state.streamMessagesByTopic[topicId] = null
+      }
+    },
+    clearStreamMessage: (state, action: PayloadAction<{ topicId: string }>) => {
+      const { topicId } = action.payload
+      state.streamMessagesByTopic[topicId] = null
     }
   }
 })
@@ -117,7 +142,10 @@ export const {
   updateMessage,
   setCurrentTopic,
   clearTopicMessages,
-  loadTopicMessages
+  loadTopicMessages,
+  setStreamMessage,
+  commitStreamMessage,
+  clearStreamMessage
 } = messagesSlice.actions
 
 // Helper function to get all messages for a topic in order
@@ -155,7 +183,7 @@ export const sendMessage =
         dispatch(clearTopicMessages(topic.id))
       }
 
-      // Create user message using existing helper
+      // Create user message and add it directly to messages
       const userMessage = getUserMessage({
         assistant,
         topic,
@@ -163,7 +191,6 @@ export const sendMessage =
         content
       })
 
-      // Add additional properties if they exist
       if (options?.files) {
         userMessage.files = options.files
       }
@@ -175,14 +202,22 @@ export const sendMessage =
       }
 
       dispatch(addMessage({ topicId: topic.id, message: userMessage }))
+      EventEmitter.emit(EVENT_NAMES.SEND_MESSAGE)
 
-      // Create assistant message using existing helper
+      // Create assistant message
       const assistantMessage = getAssistantMessage({ assistant, topic })
       assistantMessage.askId = userMessage.id
       assistantMessage.status = 'sending'
       dispatch(addMessage({ topicId: topic.id, message: assistantMessage }))
+      // Set as stream message instead of adding to messages
+      dispatch(
+        setStreamMessage({
+          topicId: topic.id,
+          message: assistantMessage
+        })
+      )
 
-      // Sync with database
+      // Sync user message with database
       const state = getState()
       const currentTopicMessages = state.messages.messagesByTopic[topic.id]
       if (currentTopicMessages) {
@@ -223,24 +258,24 @@ export const sendMessage =
               ),
             assistant: assistantWithModel,
             onResponse: async (msg) => {
-              // Create a new message object for the update
               const updatedMsg = {
                 ...msg,
                 status: msg.status || 'pending',
                 content: msg.content || ''
               }
 
-              // Update message in store
+              // Update stream message instead of updating in messages
               dispatch(
-                updateMessage({
+                setStreamMessage({
                   topicId: topic.id,
-                  messageId: assistantMessage.id,
-                  updates: updatedMsg
+                  message: { ...assistantMessage, ...updatedMsg }
                 })
               )
 
-              // Sync with database if message is complete
+              // When message is complete, commit to messages and sync with DB
               if (updatedMsg.status !== 'pending') {
+                dispatch(commitStreamMessage({ topicId: topic.id }))
+
                 const state = getState()
                 const topicMessages = state.messages.messagesByTopic[topic.id]
                 if (topicMessages) {
@@ -250,8 +285,7 @@ export const sendMessage =
             }
           })
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-          // Update message with error state
+          console.error('Error in chat completion:', error)
           dispatch(
             updateMessage({
               topicId: topic.id,
@@ -262,13 +296,13 @@ export const sendMessage =
               }
             })
           )
-          dispatch(setError(errorMessage))
+          dispatch(clearStreamMessage({ topicId: topic.id }))
+          dispatch(setError(error.message))
         }
       })
-
-      return { userMessage, assistantMessage }
     } catch (error) {
-      dispatch(setError(error instanceof Error ? error.message : 'Failed to send message'))
+      console.error('Error in sendMessage:', error)
+      dispatch(setError(error.message))
     } finally {
       dispatch(setLoading(false))
     }
@@ -361,5 +395,8 @@ export const selectError = (state: RootState): string | null => {
   const messagesState = state.messages as MessagesState
   return messagesState?.error || null
 }
+
+export const selectStreamMessage = (state: RootState, topicId: string): Message | null =>
+  state.messages.streamMessagesByTopic[topicId] || null
 
 export default messagesSlice.reducer

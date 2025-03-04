@@ -7,12 +7,7 @@ import { getTopic } from '@renderer/hooks/useTopic'
 import { fetchMessagesSummary } from '@renderer/services/ApiService'
 import { getDefaultTopic } from '@renderer/services/AssistantService'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
-import {
-  getAssistantMessage,
-  getContextCount,
-  getGroupedMessages,
-  getUserMessage
-} from '@renderer/services/MessagesService'
+import { getContextCount, getGroupedMessages, getUserMessage } from '@renderer/services/MessagesService'
 import { estimateHistoryTokens } from '@renderer/services/TokenService'
 import { useAppDispatch, useAppSelector } from '@renderer/store'
 import {
@@ -60,7 +55,6 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
     const newDisplayMessages = reversedMessages.slice(0, displayCount)
 
     setDisplayMessages(newDisplayMessages)
-
     setHasMore(messages.length > displayCount)
   }, [messages, displayCount])
 
@@ -90,17 +84,6 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
   const scrollToBottom = useCallback(() => {
     setTimeout(() => containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight, behavior: 'auto' }), 50)
   }, [])
-
-  const onSendMessageMemo = useCallback(
-    async (message: Message) => {
-      const assistantMessage = getAssistantMessage({ assistant, topic })
-      assistantMessage.askId = message.id
-      const newMessages = [...messages, message, assistantMessage]
-      await dispatch(updateMessages(topic, newMessages))
-      scrollToBottom()
-    },
-    [assistant, topic, scrollToBottom, dispatch, messages]
-  )
 
   const onAppendMessageMemo = useCallback(
     async (message: Message) => {
@@ -135,10 +118,12 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
 
   useEffect(() => {
     const unsubscribes = [
-      EventEmitter.on(EVENT_NAMES.SEND_MESSAGE, onSendMessageMemo),
       EventEmitter.on(EVENT_NAMES.APPEND_MESSAGE, onAppendMessageMemo),
       EventEmitter.on(EVENT_NAMES.RECEIVE_MESSAGE, () => {
         setTimeout(() => EventEmitter.emit(EVENT_NAMES.AI_AUTO_RENAME), 100)
+      }),
+      EventEmitter.on(EVENT_NAMES.SEND_MESSAGE, () => {
+        scrollToBottom()
       }),
       EventEmitter.on(EVENT_NAMES.AI_AUTO_RENAME, autoRenameTopicMemo),
       EventEmitter.on(EVENT_NAMES.CLEAR_MESSAGES, async (data: Topic) => {
@@ -199,7 +184,6 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
     messages,
     onAppendMessageMemo,
     handleDeleteMessage,
-    onSendMessageMemo,
     scrollToBottom,
     topic,
     updateTopic

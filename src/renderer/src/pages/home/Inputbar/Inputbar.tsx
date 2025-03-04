@@ -50,6 +50,7 @@ import TokenCount from './TokenCount'
 interface Props {
   assistant: Assistant
   setActiveTopic: (topic: Topic) => void
+  topic: Topic
 }
 
 let _text = ''

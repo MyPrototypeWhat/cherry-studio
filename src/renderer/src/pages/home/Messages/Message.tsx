@@ -9,7 +9,7 @@ import { getModelUniqId } from '@renderer/services/ModelService'
 import { estimateHistoryTokens, estimateMessageUsage } from '@renderer/services/TokenService'
 import { useAppDispatch, useAppSelector } from '@renderer/store'
 import { updateMessages } from '@renderer/store/messages'
-import { Message, Topic } from '@renderer/types'
+import { Assistant, Message, Topic } from '@renderer/types'
 import { classNames, runAsyncFunction } from '@renderer/utils'
 import { Divider } from 'antd'
 import { Dispatch, FC, memo, SetStateAction, useCallback, useEffect, useMemo, useRef } from 'react'
@@ -25,11 +25,13 @@ import MessageTokens from './MessageTokens'
 interface Props {
   message: Message
   topic?: Topic
+  assistant?: Assistant
   index?: number
   total?: number
   hidePresetMessages?: boolean
   style?: React.CSSProperties
   isGrouped?: boolean
+  isStreaming?: boolean
   onGetMessages?: () => Message[]
   onSetMessages?: Dispatch<SetStateAction<Message[]>>
   onDeleteMessage?: (message: Message) => Promise<void>
@@ -46,9 +48,11 @@ const getMessageBackground = (isBubbleStyle: boolean, isAssistantMessage: boolea
 const MessageItem: FC<Props> = ({
   message: _message,
   topic: _topic,
+  assistant: _assistant,
   index,
   hidePresetMessages,
   isGrouped,
+  isStreaming = false,
   style,
   onDeleteMessage,
   onSetMessages,
@@ -63,18 +67,19 @@ const MessageItem: FC<Props> = ({
   const messageContainerRef = useRef<HTMLDivElement>(null)
   const topic = useTopic(assistant, _topic?.id)
 
-  // Get message from Redux store
-  const message = useAppSelector((state) => {
-    const topicMessages = state.messages.messagesByTopic[_message.topicId]
-    if (!topicMessages) return _message
+  const message = isStreaming
+    ? _message
+    : useAppSelector((state) => {
+        const topicMessages = state.messages.messagesByTopic[_message.topicId]
+        if (!topicMessages) return _message
 
-    const messages = [...topicMessages.userMessages, ...topicMessages.assistantMessages]
-    return messages.find((m) => m.id === _message.id) || _message
-  })
+        const messages = [...topicMessages.userMessages, ...topicMessages.assistantMessages]
+        return messages.find((m) => m.id === _message.id) || _message
+      })
 
   const isLastMessage = index === 0
   const isAssistantMessage = message.role === 'assistant'
-  const showMenubar = !message.status.includes('ing')
+  const showMenubar = !isStreaming && !message.status.includes('ing')
 
   const fontFamily = useMemo(() => {
     return messageFont === 'serif' ? FONT_FAMILY.replace('sans-serif', 'serif').replace('Ubuntu, ', '') : FONT_FAMILY

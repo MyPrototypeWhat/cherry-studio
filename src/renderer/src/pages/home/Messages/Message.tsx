@@ -3,11 +3,11 @@ import { useAssistant } from '@renderer/hooks/useAssistant'
 import { useModel } from '@renderer/hooks/useModel'
 import { useMessageStyle, useSettings } from '@renderer/hooks/useSettings'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
-import { getContextCount, getMessageModelId } from '@renderer/services/MessagesService'
+import { getMessageModelId } from '@renderer/services/MessagesService'
 import { getModelUniqId } from '@renderer/services/ModelService'
-import { estimateHistoryTokens, estimateMessageUsage } from '@renderer/services/TokenService'
+import { estimateMessageUsage } from '@renderer/services/TokenService'
 import { useAppDispatch } from '@renderer/store'
-import { sendMessage, updateMessages } from '@renderer/store/messages'
+import { updateMessages } from '@renderer/store/messages'
 import { Assistant, Message, Topic } from '@renderer/types'
 import { classNames, runAsyncFunction } from '@renderer/utils'
 import { Divider, Dropdown } from 'antd'
@@ -96,43 +96,6 @@ const MessageItem: FC<Props> = ({
     }
   }, [])
 
-  const onEditMessage = useCallback(
-    async (msg: Message) => {
-      if (msg.role === 'user') {
-        const usage = await estimateMessageUsage(msg)
-        msg.usage = usage
-      }
-
-      // 先更新消息状态
-      if (topic) {
-        await dispatch(
-          updateMessages(
-            topic,
-            (onGetMessages?.() || []).map((m) => (m.id === message.id ? msg : m))
-          )
-        )
-      }
-      console.log('msg', msg)
-      // 如果是发送状态，则触发发送
-      if (msg.status === 'sending' && topic && assistant) {
-        await dispatch(sendMessage(msg.content, assistant, topic))
-        return
-      }
-
-      // 计算并更新token信息
-      const messages = onGetMessages?.()
-      if (messages) {
-        const tokensCount = await estimateHistoryTokens(assistant, messages)
-        const contextCount = getContextCount(assistant, messages)
-        EventEmitter.emit(EVENT_NAMES.ESTIMATED_TOKEN_COUNT, {
-          tokensCount,
-          contextCount
-        })
-      }
-    },
-    [message.id, assistant, topic, dispatch, onGetMessages]
-  )
-
   const messageHighlightHandler = useCallback((highlight: boolean = true) => {
     if (messageContainerRef.current) {
       messageContainerRef.current.scrollIntoView({ behavior: 'smooth' })
@@ -147,12 +110,9 @@ const MessageItem: FC<Props> = ({
   }, [])
 
   useEffect(() => {
-    const unsubscribes = [
-      EventEmitter.on(EVENT_NAMES.LOCATE_MESSAGE + ':' + message.id, messageHighlightHandler),
-      EventEmitter.on(EVENT_NAMES.RESEND_MESSAGE + ':' + message.id, onEditMessage)
-    ]
+    const unsubscribes = [EventEmitter.on(EVENT_NAMES.LOCATE_MESSAGE + ':' + message.id, messageHighlightHandler)]
     return () => unsubscribes.forEach((unsub) => unsub())
-  }, [message.id, messageHighlightHandler, onEditMessage])
+  }, [message.id, messageHighlightHandler])
 
   useEffect(() => {
     if (message.role === 'user' && !message.usage && topic) {
@@ -218,15 +178,15 @@ const MessageItem: FC<Props> = ({
             <MessageTokens message={message} isLastMessage={isLastMessage} />
             <MessageMenubar
               message={message}
-              assistantModel={assistant?.model}
+              assistant={assistant}
               model={model}
               index={index}
+              topic={topic}
               isLastMessage={isLastMessage}
               isAssistantMessage={isAssistantMessage}
               isGrouped={isGrouped}
               messageContainerRef={messageContainerRef}
               setModel={setModel}
-              onEditMessage={onEditMessage}
               onDeleteMessage={onDeleteMessage}
               onGetMessages={onGetMessages}
             />

@@ -4,7 +4,7 @@ import db from '@renderer/databases'
 import { TopicManager } from '@renderer/hooks/useTopic'
 import { fetchChatCompletion } from '@renderer/services/ApiService'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
-import { getAssistantMessage, getUserMessage } from '@renderer/services/MessagesService'
+import { getAssistantMessage, getUserMessage, resetAssistantMessage } from '@renderer/services/MessagesService'
 import { AppDispatch, RootState } from '@renderer/store'
 import { Assistant, FileType, Message, Model, Topic } from '@renderer/types'
 import { clearTopicQueue, getTopicQueue, waitForTopicQueue } from '@renderer/utils/queue'
@@ -76,10 +76,7 @@ const messagesSlice = createSlice({
       if (topicMessages) {
         const messageIndex = topicMessages.findIndex((msg) => msg.id === messageId)
         if (messageIndex !== -1) {
-          topicMessages[messageIndex] = {
-            ...topicMessages[messageIndex],
-            ...updates
-          }
+          topicMessages[messageIndex] = { ...topicMessages[messageIndex], ...updates }
         }
       }
     },
@@ -95,13 +92,7 @@ const messagesSlice = createSlice({
       const { topicId, messages } = action.payload
       state.messagesByTopic[topicId] = messages.map((msg) => ({ ...msg }))
     },
-    setStreamMessage: (
-      state,
-      action: PayloadAction<{
-        topicId: string
-        message: Message | null
-      }>
-    ) => {
+    setStreamMessage: (state, action: PayloadAction<{ topicId: string; message: Message | null }>) => {
       const { topicId, message } = action.payload
       state.streamMessagesByTopic[topicId] = message
     },
@@ -172,7 +163,13 @@ export const sendMessage =
     content: string,
     assistant: Assistant,
     topic: Topic,
-    options?: { files?: FileType[]; knowledgeBaseIds?: string[]; mentionModels?: Model[] }
+    options?: {
+      files?: FileType[]
+      knowledgeBaseIds?: string[]
+      mentionModels?: Model[]
+      resendUserMessage?: Message
+      resendAssistantMessage?: Message
+    }
   ) =>
   async (dispatch: AppDispatch, getState: () => RootState) => {
     try {
@@ -184,39 +181,57 @@ export const sendMessage =
         dispatch(clearTopicMessages(topic.id))
       }
 
-      // Create user message and add it directly to messages
-      const userMessage = getUserMessage({
-        assistant,
-        topic,
-        type: 'text',
-        content
-      })
+      // 判断是否重发消息
+      const isResend = !!options?.resendUserMessage
 
-      if (options?.files) {
-        userMessage.files = options.files
-      }
-      if (options?.knowledgeBaseIds) {
-        userMessage.knowledgeBaseIds = options.knowledgeBaseIds
-      }
-      if (options?.mentionModels) {
-        userMessage.mentions = options.mentionModels
+      // 使用用户消息
+      let userMessage: Message
+      if (isResend) {
+        userMessage = options.resendUserMessage
+      } else {
+        // 创建新的用户消息
+        userMessage = getUserMessage({ assistant, topic, type: 'text', content })
+
+        if (options?.files) {
+          userMessage.files = options.files
+        }
+        if (options?.knowledgeBaseIds) {
+          userMessage.knowledgeBaseIds = options.knowledgeBaseIds
+        }
+        if (options?.mentionModels) {
+          userMessage.mentions = options.mentionModels
+        }
       }
 
-      dispatch(addMessage({ topicId: topic.id, message: userMessage }))
+      // 如果不是重发，才添加新的用户消息
+      if (!isResend) {
+        dispatch(addMessage({ topicId: topic.id, message: userMessage }))
+      }
       EventEmitter.emit(EVENT_NAMES.SEND_MESSAGE)
 
-      // Create assistant message
-      const assistantMessage = getAssistantMessage({ assistant, topic })
-      assistantMessage.askId = userMessage.id
-      assistantMessage.status = 'sending'
-      dispatch(addMessage({ topicId: topic.id, message: assistantMessage }))
+      // 处理助手消息
+      let assistantMessage: Message
+
+      // 使用助手消息
+      if (isResend && options.resendAssistantMessage) {
+        // 直接使用传入的助手消息，进行重置
+        const messageToReset = options.resendAssistantMessage
+        const resetMessage = resetAssistantMessage(messageToReset, messageToReset.model)
+        // 更新状态
+        dispatch(updateMessage({ topicId: topic.id, messageId: messageToReset.id, updates: resetMessage }))
+
+        // 使用重置后的消息
+        assistantMessage = resetMessage
+      } else {
+        // 不是重发情况，创建新的助手消息
+        assistantMessage = getAssistantMessage({ assistant, topic })
+        assistantMessage.askId = userMessage.id
+        assistantMessage.status = 'sending'
+        dispatch(addMessage({ topicId: topic.id, message: assistantMessage }))
+      }
+
       // Set as stream message instead of adding to messages
-      dispatch(
-        setStreamMessage({
-          topicId: topic.id,
-          message: assistantMessage
-        })
-      )
+      dispatch(setStreamMessage({ topicId: topic.id, message: assistantMessage }))
 
       // Sync user message with database
       const state = getState()
@@ -259,19 +274,10 @@ export const sendMessage =
               ),
             assistant: assistantWithModel,
             onResponse: async (msg) => {
-              const updatedMsg = {
-                ...msg,
-                status: msg.status || 'pending',
-                content: msg.content || ''
-              }
+              const updatedMsg = { ...msg, status: msg.status || 'pending', content: msg.content || '' }
 
               // Update stream message instead of updating in messages
-              dispatch(
-                setStreamMessage({
-                  topicId: topic.id,
-                  message: { ...assistantMessage, ...updatedMsg }
-                })
-              )
+              dispatch(setStreamMessage({ topicId: topic.id, message: { ...assistantMessage, ...updatedMsg } }))
 
               // When message is complete, commit to messages and sync with DB
               if (updatedMsg.status !== 'pending') {
@@ -291,10 +297,7 @@ export const sendMessage =
             updateMessage({
               topicId: topic.id,
               messageId: assistantMessage.id,
-              updates: {
-                status: 'error',
-                error: { message: error.message }
-              }
+              updates: { status: 'error', error: { message: error.message } }
             })
           )
           dispatch(clearStreamMessage({ topicId: topic.id }))
@@ -303,6 +306,58 @@ export const sendMessage =
       })
     } catch (error) {
       console.error('Error in sendMessage:', error)
+      dispatch(setError(error.message))
+    } finally {
+      dispatch(setLoading(false))
+    }
+  }
+
+// 新增的resendMessage thunk，专门用于重发消息
+export const resendMessage =
+  (message: Message, assistant: Assistant, topic: Topic) =>
+  async (dispatch: AppDispatch, getState: () => RootState) => {
+    try {
+      // 获取状态
+      const state = getState()
+      const topicMessages = state.messages.messagesByTopic[topic.id] || []
+
+      // 如果是用户消息，直接重发
+      if (message.role === 'user') {
+        // 查找此用户消息对应的助手消息
+        const assistantMessage = topicMessages.find((m) => m.role === 'assistant' && m.askId === message.id)
+
+        if (!assistantMessage) {
+          console.error('Cannot find assistant message to resend')
+          dispatch(setError('Cannot find assistant message to resend'))
+          return
+        }
+
+        return dispatch(
+          sendMessage(message.content, assistant, topic, {
+            resendUserMessage: message,
+            resendAssistantMessage: assistantMessage
+          })
+        )
+      }
+
+      // 如果是助手消息，找到对应的用户消息
+      const userMessage = topicMessages.find((m) => m.id === message.askId && m.role === 'user')
+
+      if (!userMessage) {
+        console.error('Cannot find original user message to resend')
+        dispatch(setError('Cannot find original user message to resend'))
+        return
+      }
+
+      // 重发消息，同时传递用户消息和助手消息
+      return dispatch(
+        sendMessage(userMessage.content, assistant, topic, {
+          resendUserMessage: userMessage,
+          resendAssistantMessage: message
+        })
+      )
+    } catch (error) {
+      console.error('Error in resendMessage:', error)
       dispatch(setError(error.message))
     } finally {
       dispatch(setLoading(false))

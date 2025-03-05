@@ -19,16 +19,12 @@ import { modelGenerating } from '@renderer/hooks/useRuntime'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { getMessageTitle, resetAssistantMessage } from '@renderer/services/MessagesService'
 import { translateText } from '@renderer/services/TranslateService'
-import { useAppDispatch } from '@renderer/store'
-import { sendMessage } from '@renderer/store/messages'
+import { useAppDispatch, useAppSelector } from '@renderer/store'
+import { resendMessage, updateMessage } from '@renderer/store/messages'
+import { selectTopicMessages } from '@renderer/store/messages'
 import { Message, Model } from '@renderer/types'
 import { Assistant, Topic } from '@renderer/types'
-import {
-  captureScrollableDivAsBlob,
-  captureScrollableDivAsDataURL,
-  removeTrailingDoubleSpaces,
-  uuid
-} from '@renderer/utils'
+import { captureScrollableDivAsBlob, captureScrollableDivAsDataURL, removeTrailingDoubleSpaces } from '@renderer/utils'
 import {
   exportMarkdownToNotion,
   exportMarkdownToYuque,
@@ -41,6 +37,7 @@ import { isEmpty } from 'lodash'
 import { FC, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+
 interface Props {
   message: Message
   assistant: Assistant
@@ -52,7 +49,6 @@ interface Props {
   isAssistantMessage: boolean
   messageContainerRef: React.RefObject<HTMLDivElement>
   setModel: (model: Model) => void
-  onEditMessage?: (message: Message) => void
   onDeleteMessage?: (message: Message) => Promise<void>
   onGetMessages?: () => Message[]
 }
@@ -68,7 +64,6 @@ const MessageMenubar: FC<Props> = (props) => {
     topic,
     model,
     messageContainerRef,
-    onEditMessage,
     onDeleteMessage,
     onGetMessages
   } = props
@@ -77,7 +72,7 @@ const MessageMenubar: FC<Props> = (props) => {
   const [isTranslating, setIsTranslating] = useState(false)
   const assistantModel = assistant?.model
   const dispatch = useAppDispatch()
-  // const { assistant, model } = useAssistant(message.assistantId)
+  const messages = useAppSelector((state) => selectTopicMessages(state, topic.id))
 
   const isUserMessage = message.role === 'user'
 
@@ -95,51 +90,33 @@ const MessageMenubar: FC<Props> = (props) => {
   const onNewBranch = useCallback(async () => {
     await modelGenerating()
     EventEmitter.emit(EVENT_NAMES.NEW_BRANCH, index)
-    window.message.success({
-      content: t('chat.message.new.branch.created'),
-      key: 'new-branch'
-    })
+    window.message.success({ content: t('chat.message.new.branch.created'), key: 'new-branch' })
   }, [index, t])
 
-  const onResend = useCallback(async () => {
-    await modelGenerating()
-    const _messages = onGetMessages?.() || []
-    console.log('_messages', _messages)
-    const groupdMessages = _messages.filter((m) => m.askId === message.id)
+  const handleResendUserMessage = useCallback(
+    async (messageUpdate?: Message) => {
+      // messageUpdate 为了处理用户消息更改后的message
+      await modelGenerating()
+      const groupdMessages = messages.filter((m) => m.askId === message.id)
 
-    // Resend all grouped messages
-    if (!isEmpty(groupdMessages)) {
-      for (const assistantMessage of groupdMessages) {
-        const _model = assistantMessage.model || assistantModel
-        const resetMessage = resetAssistantMessage(assistantMessage, _model)
-        onEditMessage?.(resetMessage)
+      // Resend all grouped messages
+      if (!isEmpty(groupdMessages)) {
+        for (const assistantMessage of groupdMessages) {
+          const _model = assistantMessage.model || assistantModel
+          await dispatch(resendMessage({ ...assistantMessage, model: _model }, assistant, topic))
+        }
+        return
       }
-      return
-    }
 
-    // 修改这部分逻辑，避免创建空的用户消息
-    const index = _messages.findIndex((m) => m.id === message.id)
-    const nextIndex = index + 1
-    const nextMessage = _messages[nextIndex]
+      await dispatch(resendMessage(messageUpdate ?? message, assistant, topic))
+    },
+    [message, assistantModel, model, onDeleteMessage, onGetMessages, dispatch, assistant, topic]
+  )
 
-    if (nextMessage && nextMessage.role === 'assistant') {
-      const resetMessage = {
-        ...nextMessage,
-        content: '',
-        status: 'sending',
-        model: assistantModel || model,
-        translatedContent: undefined
-      }
-      onEditMessage?.(resetMessage)
-    }
-
-    // 如果没有下一条消息或下一条是用户消息，直接使用当前消息内容重新发送
-    // 不删除当前消息，而是直接发送内容
-    if (!nextMessage || nextMessage.role === 'user') {
-      await dispatch(sendMessage(message.content, assistant, topic))
-      // 不要删除原消息: onDeleteMessage?.(message)
-    }
-  }, [message, assistantModel, model, onDeleteMessage, onGetMessages, dispatch, assistant, topic])
+  // const onResendUserMessage = useCallback(async () => {
+  //   // await dispatch(resendMessage(message, assistant, topic))
+  //   onResend()
+  // }, [message, dispatch, assistant, topic])
 
   const onEdit = useCallback(async () => {
     let resendMessage = false
@@ -160,45 +137,44 @@ const MessageMenubar: FC<Props> = (props) => {
         ) : null
       }
     })
+    if (editedText && editedText !== message.content) {
+      // 同步修改store中用户消息
+      dispatch(updateMessage({ topicId: topic.id, messageId: message.id, updates: { content: editedText } }))
 
-    if (editedText) {
-      await onEditMessage?.({ ...message, content: editedText })
+      // const updatedMessages = onGetMessages?.() || []
+      // dispatch(updateMessages(topic, updatedMessages))
     }
 
-    resendMessage && onResend()
-  }, [message, onEditMessage, onResend, t])
-
-  const onResendUserMessage = useCallback(async () => {
-    // 不要更新当前消息，直接重新发送内容
-    // await onEditMessage?.({ ...message, content: message.content })
-    await dispatch(sendMessage(message.content, assistant, topic))
-    // onResend && onResend()
-  }, [message, dispatch, assistant, topic])
+    if (resendMessage) handleResendUserMessage({ ...message, content: editedText })
+  }, [message, dispatch, topic, onGetMessages, handleResendUserMessage, t])
 
   const handleTranslate = useCallback(
     async (language: string) => {
       if (isTranslating) return
 
-      onEditMessage?.({ ...message, translatedContent: t('translate.processing') })
+      dispatch(
+        updateMessage({
+          topicId: topic.id,
+          messageId: message.id,
+          updates: { translatedContent: t('translate.processing') }
+        })
+      )
 
       setIsTranslating(true)
 
       try {
         await translateText(message.content, language, (text) =>
-          onEditMessage?.({ ...message, translatedContent: text })
+          dispatch(updateMessage({ topicId: topic.id, messageId: message.id, updates: { translatedContent: text } }))
         )
       } catch (error) {
         console.error('Translation failed:', error)
-        window.message.error({
-          content: t('translate.error.failed'),
-          key: 'translate-message'
-        })
-        onEditMessage?.({ ...message, translatedContent: undefined })
+        window.message.error({ content: t('translate.error.failed'), key: 'translate-message' })
+        dispatch(updateMessage({ topicId: topic.id, messageId: message.id, updates: { translatedContent: undefined } }))
       } finally {
         setIsTranslating(false)
       }
     },
-    [isTranslating, message, onEditMessage, t]
+    [isTranslating, message, dispatch, topic, t]
   )
 
   const dropdownItems = useMemo(
@@ -212,18 +188,8 @@ const MessageMenubar: FC<Props> = (props) => {
           window.api.file.save(fileName, message.content)
         }
       },
-      {
-        label: t('common.edit'),
-        key: 'edit',
-        icon: <EditOutlined />,
-        onClick: onEdit
-      },
-      {
-        label: t('chat.message.new.branch'),
-        key: 'new-branch',
-        icon: <ForkOutlined />,
-        onClick: onNewBranch
-      },
+      { label: t('common.edit'), key: 'edit', icon: <EditOutlined />, onClick: onEdit },
+      { label: t('chat.message.new.branch'), key: 'new-branch', icon: <ForkOutlined />, onClick: onNewBranch },
       {
         label: t('chat.topics.export.title'),
         key: 'export',
@@ -251,11 +217,7 @@ const MessageMenubar: FC<Props> = (props) => {
               }
             }
           },
-          {
-            label: t('chat.topics.export.md'),
-            key: 'markdown',
-            onClick: () => exportMessageAsMarkdown(message)
-          },
+          { label: t('chat.topics.export.md'), key: 'markdown', onClick: () => exportMessageAsMarkdown(message) },
 
           {
             label: t('chat.topics.export.word'),
@@ -294,7 +256,8 @@ const MessageMenubar: FC<Props> = (props) => {
     await modelGenerating()
     const selectedModel = isGrouped ? model : assistantModel
     const _message = resetAssistantMessage(message, selectedModel)
-    onEditMessage?.(_message)
+    dispatch(updateMessage({ topicId: topic.id, messageId: message.id, updates: _message }))
+    dispatch(resendMessage(_message, assistant, topic))
   }
 
   const onMentionModel = async (e: React.MouseEvent) => {
@@ -304,27 +267,22 @@ const MessageMenubar: FC<Props> = (props) => {
     if (!selectedModel) return
 
     const _message: Message = resetAssistantMessage(message, selectedModel)
-
-    if (message.askId && message.model) {
-      return EventEmitter.emit(EVENT_NAMES.APPEND_MESSAGE, { ..._message, id: uuid() })
-    }
-
-    onEditMessage?.(_message)
+    dispatch(updateMessage({ topicId: topic.id, messageId: message.id, updates: _message }))
   }
 
   const onUseful = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation()
-      onEditMessage?.({ ...message, useful: !message.useful })
+      dispatch(updateMessage({ topicId: topic.id, messageId: message.id, updates: { useful: !message.useful } }))
     },
-    [message, onEditMessage]
+    [message, dispatch, topic]
   )
 
   return (
     <MenusBar className={`menubar ${isLastMessage && 'show'}`}>
       {message.role === 'user' && (
         <Tooltip title={t('common.regenerate')} mouseEnterDelay={0.8}>
-          <ActionButton className="message-action-button" onClick={onResendUserMessage}>
+          <ActionButton className="message-action-button" onClick={() => handleResendUserMessage()}>
             <SyncOutlined />
           </ActionButton>
         </Tooltip>
@@ -375,7 +333,14 @@ const MessageMenubar: FC<Props> = (props) => {
               {
                 label: '✖ ' + t('translate.close'),
                 key: 'translate-close',
-                onClick: () => onEditMessage?.({ ...message, translatedContent: undefined })
+                onClick: () =>
+                  dispatch(
+                    updateMessage({
+                      topicId: topic.id,
+                      messageId: message.id,
+                      updates: { translatedContent: undefined }
+                    })
+                  )
               }
             ],
             onClick: (e) => e.domEvent.stopPropagation()

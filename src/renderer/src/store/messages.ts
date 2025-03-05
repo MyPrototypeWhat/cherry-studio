@@ -1,6 +1,7 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { createSelector } from '@reduxjs/toolkit'
 import db from '@renderer/databases'
+import { TopicManager } from '@renderer/hooks/useTopic'
 import { fetchChatCompletion } from '@renderer/services/ApiService'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { getAssistantMessage, getUserMessage } from '@renderer/services/MessagesService'
@@ -8,27 +9,12 @@ import { AppDispatch, RootState } from '@renderer/store'
 import { Assistant, FileType, Message, Model, Topic } from '@renderer/types'
 import { clearTopicQueue, getTopicQueue, waitForTopicQueue } from '@renderer/utils/queue'
 
-// Helper functions for converting between store and DB formats
-/* Commented out as currently unused
-const convertToStoreFormat = (messages: Message[]): TopicMessages => ({
-  userMessages: messages.filter((msg) => msg.role === 'user'),
-  assistantMessages: messages.filter((msg) => msg.role === 'assistant')
-})
-*/
-
-const convertToDBFormat = (topicMessages: TopicMessages): Message[] => {
-  return [...topicMessages.userMessages, ...topicMessages.assistantMessages].sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  )
-}
-
-export interface TopicMessages {
-  userMessages: Message[]
-  assistantMessages: Message[]
+const convertToDBFormat = (messages: Message[]): Message[] => {
+  return [...messages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 }
 
 export interface MessagesState {
-  messagesByTopic: Record<string, TopicMessages>
+  messagesByTopic: Record<string, Message[]>
   streamMessagesByTopic: Record<string, Message | null>
   currentTopic: string
   loading: boolean
@@ -44,6 +30,21 @@ const initialState: MessagesState = {
   displayCount: 20,
   error: null
 }
+
+export const initializeMessagesState = createAsyncThunk('messages/initialize', async () => {
+  // Get all topics from database
+  const topics = await TopicManager.getAllTopics()
+  const messagesByTopic: Record<string, Message[]> = {}
+
+  // Group topics by assistantId and update messagesByTopic
+  for (const topic of topics) {
+    if (topic.messages && topic.messages.length > 0) {
+      messagesByTopic[topic.id] = topic.messages.map((msg) => ({ ...msg }))
+    }
+  }
+
+  return messagesByTopic
+})
 
 const messagesSlice = createSlice({
   name: 'messages',
@@ -61,17 +62,10 @@ const messagesSlice = createSlice({
     addMessage: (state, action: PayloadAction<{ topicId: string; message: Message }>) => {
       const { topicId, message } = action.payload
       if (!state.messagesByTopic[topicId]) {
-        state.messagesByTopic[topicId] = {
-          userMessages: [],
-          assistantMessages: []
-        }
+        state.messagesByTopic[topicId] = []
       }
 
-      if (message.role === 'user') {
-        state.messagesByTopic[topicId].userMessages.push(message)
-      } else {
-        state.messagesByTopic[topicId].assistantMessages.push(message)
-      }
+      state.messagesByTopic[topicId].push(message)
     },
     updateMessage: (
       state,
@@ -80,12 +74,10 @@ const messagesSlice = createSlice({
       const { topicId, messageId, updates } = action.payload
       const topicMessages = state.messagesByTopic[topicId]
       if (topicMessages) {
-        const isUserMessage = topicMessages.userMessages.some((msg) => msg.id === messageId)
-        const messages = isUserMessage ? topicMessages.userMessages : topicMessages.assistantMessages
-        const messageIndex = messages.findIndex((msg) => msg.id === messageId)
+        const messageIndex = topicMessages.findIndex((msg) => msg.id === messageId)
         if (messageIndex !== -1) {
-          messages[messageIndex] = {
-            ...messages[messageIndex],
+          topicMessages[messageIndex] = {
+            ...topicMessages[messageIndex],
             ...updates
           }
         }
@@ -96,18 +88,12 @@ const messagesSlice = createSlice({
     },
     clearTopicMessages: (state, action: PayloadAction<string>) => {
       const topicId = action.payload
-      state.messagesByTopic[topicId] = {
-        userMessages: [],
-        assistantMessages: []
-      }
+      state.messagesByTopic[topicId] = []
       state.error = null
     },
     loadTopicMessages: (state, action: PayloadAction<{ topicId: string; messages: Message[] }>) => {
       const { topicId, messages } = action.payload
-      state.messagesByTopic[topicId] = {
-        userMessages: messages.filter((msg) => msg.role === 'user'),
-        assistantMessages: messages.filter((msg) => msg.role === 'assistant')
-      }
+      state.messagesByTopic[topicId] = messages.map((msg) => ({ ...msg }))
     },
     setStreamMessage: (
       state,
@@ -124,25 +110,39 @@ const messagesSlice = createSlice({
       const streamMessage = state.streamMessagesByTopic[topicId]
       if (streamMessage && streamMessage.role === 'assistant') {
         // 查找是否已经存在具有相同askId的助手消息
-        const existingMessageIndex = state.messagesByTopic[topicId].assistantMessages.findIndex(
-          (m) => m.askId === streamMessage.askId
-        )
+        const existingMessageIndex = state.messagesByTopic[topicId].findIndex((m) => m.askId === streamMessage.askId)
 
         if (existingMessageIndex !== -1) {
           // 替换已有的消息
-          state.messagesByTopic[topicId].assistantMessages[existingMessageIndex] = streamMessage
+          state.messagesByTopic[topicId][existingMessageIndex] = streamMessage
         } else {
           // 如果不存在，则添加新消息
-          state.messagesByTopic[topicId].assistantMessages.push(streamMessage)
+          state.messagesByTopic[topicId].push(streamMessage)
         }
 
-        state.streamMessagesByTopic[topicId] = null
+        delete state.streamMessagesByTopic[topicId]
       }
     },
     clearStreamMessage: (state, action: PayloadAction<{ topicId: string }>) => {
       const { topicId } = action.payload
       state.streamMessagesByTopic[topicId] = null
     }
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(initializeMessagesState.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(initializeMessagesState.fulfilled, (state, action) => {
+        console.log('initializeMessagesState.fulfilled', action.payload)
+        state.loading = false
+        state.messagesByTopic = action.payload
+      })
+      .addCase(initializeMessagesState.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.error.message || 'Failed to load messages'
+      })
   }
 })
 
@@ -160,20 +160,9 @@ export const {
   clearStreamMessage
 } = messagesSlice.actions
 
-// Helper function to get all messages for a topic in order
-/* Commented out as currently unused
-const getTopicMessages = (state: MessagesState, topicId: string): Message[] => {
-  const topicMessages = state.messagesByTopic[topicId]
-  if (!topicMessages) return []
-
-  const messages = [...topicMessages.userMessages, ...topicMessages.assistantMessages]
-  return messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-}
-*/
-
 // Helper function to sync messages with database
-const syncMessagesWithDB = async (topicId: string, topicMessages: TopicMessages) => {
-  const dbMessages = convertToDBFormat(topicMessages)
+const syncMessagesWithDB = async (topicId: string, messages: Message[]) => {
+  const dbMessages = convertToDBFormat(messages)
   await db.topics.update(topicId, { messages: dbMessages })
 }
 
@@ -304,7 +293,7 @@ export const sendMessage =
               messageId: assistantMessage.id,
               updates: {
                 status: 'error',
-                error: { message: errorMessage }
+                error: { message: error.message }
               }
             })
           )
@@ -382,9 +371,7 @@ export const selectTopicMessages = createSelector(
     const topicMessages = messagesState.messagesByTopic[topicId]
     if (!topicMessages) return []
 
-    return [...topicMessages.userMessages, ...topicMessages.assistantMessages].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    )
+    return [...topicMessages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
   }
 )
 

@@ -49,7 +49,7 @@ const MessageStream: React.FC<MessageStreamProps> = ({
     const topicMessages = state.messages.messagesByTopic[_message.topicId]
     if (!topicMessages) return _message
 
-    return topicMessages.assistantMessages.find((m) => m.id === _message.id) || _message
+    return topicMessages.find((m) => m.id === _message.id) || _message
   })
 
   // 在hooks调用后进行条件判断

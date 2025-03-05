@@ -10,7 +10,7 @@ import { getStoreSetting } from '@renderer/hooks/useSettings'
 import i18n from '@renderer/i18n'
 import { getAssistantSettings, getDefaultModel, getTopNamingModel } from '@renderer/services/AssistantService'
 import { EVENT_NAMES } from '@renderer/services/EventService'
-import { filterContextMessages } from '@renderer/services/MessagesService'
+import { filterContextMessages, filterUserRoleStartMessages } from '@renderer/services/MessagesService'
 import { Assistant, FileTypes, GenerateImageParams, Message, Model, Provider, Suggestion } from '@renderer/types'
 import { removeSpecialCharacters } from '@renderer/utils'
 import { takeRight } from 'lodash'
@@ -23,6 +23,8 @@ import {
 
 import { CompletionsParams } from '.'
 import BaseProvider from './BaseProvider'
+
+type ReasoningEffort = 'high' | 'medium' | 'low'
 
 export default class OpenAIProvider extends BaseProvider {
   private sdk: OpenAI
@@ -177,27 +179,26 @@ export default class OpenAIProvider extends BaseProvider {
         }
       }
 
-      const effort_ratio =
-        assistant?.settings?.reasoning_effort === 'high'
-          ? 0.8
-          : assistant?.settings?.reasoning_effort === 'medium'
-            ? 0.5
-            : assistant?.settings?.reasoning_effort === 'low'
-              ? 0.2
-              : undefined
-
       if (model.id.includes('claude-3.7-sonnet') || model.id.includes('claude-3-7-sonnet')) {
-        if (!effort_ratio) {
-          return {
-            type: 'disabled'
-          }
+        const effortRatios: Record<ReasoningEffort, number> = {
+          high: 0.8,
+          medium: 0.5,
+          low: 0.2
         }
+
+        const effort = assistant?.settings?.reasoning_effort as ReasoningEffort
+        const effortRatio = effortRatios[effort]
+
+        if (!effortRatio) {
+          return {}
+        }
+
+        const maxTokens = assistant?.settings?.maxTokens || DEFAULT_MAX_TOKENS
+        const budgetTokens = Math.trunc(Math.max(Math.min(maxTokens * effortRatio, 32000), 1024))
+
         return {
           thinking: {
-            budget_tokens: Math.max(
-              Math.min((assistant?.settings?.maxTokens || DEFAULT_MAX_TOKENS) * effort_ratio, 32000),
-              1024
-            )
+            budget_tokens: budgetTokens
           }
         }
       }
@@ -228,14 +229,8 @@ export default class OpenAIProvider extends BaseProvider {
 
     const userMessages: ChatCompletionMessageParam[] = []
 
-    const _messages = filterContextMessages(takeRight(messages, contextCount + 1))
+    const _messages = filterUserRoleStartMessages(filterContextMessages(takeRight(messages, contextCount + 1)))
     onFilterMessages(_messages)
-
-    if (model.id === 'deepseek-reasoner') {
-      if (_messages[0]?.role !== 'user') {
-        userMessages.push({ role: 'user', content: '' })
-      }
-    }
 
     for (const message of _messages) {
       userMessages.push(await this.getMessageParam(message, model))

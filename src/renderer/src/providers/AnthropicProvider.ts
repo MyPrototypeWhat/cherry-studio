@@ -6,7 +6,7 @@ import { getStoreSetting } from '@renderer/hooks/useSettings'
 import i18n from '@renderer/i18n'
 import { getAssistantSettings, getDefaultModel, getTopNamingModel } from '@renderer/services/AssistantService'
 import { EVENT_NAMES } from '@renderer/services/EventService'
-import { filterContextMessages } from '@renderer/services/MessagesService'
+import { filterContextMessages, filterUserRoleStartMessages } from '@renderer/services/MessagesService'
 import { Assistant, FileTypes, Message, Model, Provider, Suggestion } from '@renderer/types'
 import { removeSpecialCharacters } from '@renderer/utils'
 import { first, flatten, sum, takeRight } from 'lodash'
@@ -14,6 +14,14 @@ import OpenAI from 'openai'
 
 import { CompletionsParams } from '.'
 import BaseProvider from './BaseProvider'
+
+type ReasoningEffort = 'high' | 'medium' | 'low'
+
+interface ReasoningConfig {
+  type: 'enabled' | 'disabled'
+  budget_tokens?: number
+}
+
 export default class AnthropicProvider extends BaseProvider {
   private sdk: Anthropic
 
@@ -77,33 +85,37 @@ export default class AnthropicProvider extends BaseProvider {
     return assistant?.settings?.topP
   }
 
-  private getReasoningEffort(assistant: Assistant, model: Model) {
-    if (isReasoningModel(model)) {
-      const effort_ratio =
-        assistant?.settings?.reasoning_effort === 'high'
-          ? 0.8
-          : assistant?.settings?.reasoning_effort === 'medium'
-            ? 0.5
-            : assistant?.settings?.reasoning_effort === 'low'
-              ? 0.2
-              : undefined
-      if (!effort_ratio)
-        return {
-          type: 'disabled'
-        }
-
-      if (model.id.includes('claude-3.7-sonnet') || model.id.includes('claude-3-7-sonnet')) {
-        return {
-          type: 'enabled',
-          budget_tokens: Math.max(
-            Math.min((assistant?.settings?.maxTokens || DEFAULT_MAX_TOKENS) * effort_ratio, 32000),
-            1024
-          )
-        }
-      }
+  private getReasoningEffort(assistant: Assistant, model: Model): ReasoningConfig | undefined {
+    if (!isReasoningModel(model)) {
+      return undefined
     }
 
-    return undefined
+    const effortRatios: Record<ReasoningEffort, number> = {
+      high: 0.8,
+      medium: 0.5,
+      low: 0.2
+    }
+
+    const effort = assistant?.settings?.reasoning_effort as ReasoningEffort
+    const effortRatio = effortRatios[effort]
+
+    if (!effortRatio) {
+      return undefined
+    }
+
+    const isClaude37Sonnet = model.id.includes('claude-3-7-sonnet') || model.id.includes('claude-3.7-sonnet')
+
+    if (!isClaude37Sonnet) {
+      return undefined
+    }
+
+    const maxTokens = assistant?.settings?.maxTokens || DEFAULT_MAX_TOKENS
+    const budgetTokens = Math.trunc(Math.max(Math.min(maxTokens * effortRatio, 32000), 1024))
+
+    return {
+      type: 'enabled',
+      budget_tokens: budgetTokens
+    }
   }
 
   public async completions({ messages, assistant, onChunk, onFilterMessages }: CompletionsParams) {
@@ -112,7 +124,7 @@ export default class AnthropicProvider extends BaseProvider {
     const { contextCount, maxTokens, streamOutput } = getAssistantSettings(assistant)
 
     const userMessagesParams: MessageParam[] = []
-    const _messages = filterContextMessages(takeRight(messages, contextCount + 2))
+    const _messages = filterUserRoleStartMessages(filterContextMessages(takeRight(messages, contextCount + 2)))
 
     onFilterMessages(_messages)
 
@@ -122,10 +134,6 @@ export default class AnthropicProvider extends BaseProvider {
 
     const userMessages = flatten(userMessagesParams)
 
-    if (first(userMessages)?.role === 'assistant') {
-      userMessages.shift()
-    }
-
     const body: MessageCreateParamsNonStreaming = {
       model: model.id,
       messages: userMessages,
@@ -133,12 +141,9 @@ export default class AnthropicProvider extends BaseProvider {
       temperature: this.getTemperature(assistant, model),
       top_p: this.getTopP(assistant, model),
       system: assistant.prompt,
+      // @ts-ignore thinking
+      thinking: this.getReasoningEffort(assistant, model),
       ...this.getCustomParameters(assistant)
-    }
-
-    if (isReasoningModel(model)) {
-      ;(body as any).thinking = this.getReasoningEffort(assistant, model)
-      ;(body as any).betas = ['output-128k-2025-02-19']
     }
 
     let time_first_token_millsec = 0

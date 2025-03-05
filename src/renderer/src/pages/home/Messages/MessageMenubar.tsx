@@ -22,6 +22,7 @@ import { translateText } from '@renderer/services/TranslateService'
 import { useAppDispatch } from '@renderer/store'
 import { sendMessage } from '@renderer/store/messages'
 import { Message, Model } from '@renderer/types'
+import { Assistant, Topic } from '@renderer/types'
 import {
   captureScrollableDivAsBlob,
   captureScrollableDivAsDataURL,
@@ -40,11 +41,11 @@ import { isEmpty } from 'lodash'
 import { FC, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-
 interface Props {
   message: Message
-  assistantModel?: Model
-  model?: Model
+  assistant: Assistant
+  topic: Topic
+  model: Model
   index?: number
   isGrouped?: boolean
   isLastMessage: boolean
@@ -61,10 +62,11 @@ const MessageMenubar: FC<Props> = (props) => {
     message,
     index,
     isGrouped,
-    model,
     isLastMessage,
     isAssistantMessage,
-    assistantModel,
+    assistant,
+    topic,
+    model,
     messageContainerRef,
     onEditMessage,
     onDeleteMessage,
@@ -73,7 +75,9 @@ const MessageMenubar: FC<Props> = (props) => {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   const [isTranslating, setIsTranslating] = useState(false)
+  const assistantModel = assistant?.model
   const dispatch = useAppDispatch()
+  // const { assistant, model } = useAssistant(message.assistantId)
 
   const isUserMessage = message.role === 'user'
 
@@ -100,41 +104,42 @@ const MessageMenubar: FC<Props> = (props) => {
   const onResend = useCallback(async () => {
     await modelGenerating()
     const _messages = onGetMessages?.() || []
+    console.log('_messages', _messages)
     const groupdMessages = _messages.filter((m) => m.askId === message.id)
 
     // Resend all grouped messages
     if (!isEmpty(groupdMessages)) {
       for (const assistantMessage of groupdMessages) {
         const _model = assistantMessage.model || assistantModel
-        EventEmitter.emit(
-          EVENT_NAMES.RESEND_MESSAGE + ':' + assistantMessage.id,
-          resetAssistantMessage(assistantMessage, _model)
-        )
+        const resetMessage = resetAssistantMessage(assistantMessage, _model)
+        onEditMessage?.(resetMessage)
       }
       return
     }
 
-    // If there is no grouped message, resend next message
+    // 修改这部分逻辑，避免创建空的用户消息
     const index = _messages.findIndex((m) => m.id === message.id)
     const nextIndex = index + 1
     const nextMessage = _messages[nextIndex]
 
     if (nextMessage && nextMessage.role === 'assistant') {
-      EventEmitter.emit(EVENT_NAMES.RESEND_MESSAGE + ':' + nextMessage.id, {
+      const resetMessage = {
         ...nextMessage,
         content: '',
         status: 'sending',
         model: assistantModel || model,
         translatedContent: undefined
-      })
+      }
+      onEditMessage?.(resetMessage)
     }
 
-    // If next message is not exist or next message role is user, delete current message and resend
+    // 如果没有下一条消息或下一条是用户消息，直接使用当前消息内容重新发送
+    // 不删除当前消息，而是直接发送内容
     if (!nextMessage || nextMessage.role === 'user') {
       await dispatch(sendMessage(message.content, assistant, topic))
-      onDeleteMessage?.(message)
+      // 不要删除原消息: onDeleteMessage?.(message)
     }
-  }, [message, assistantModel, model, onDeleteMessage, onGetMessages])
+  }, [message, assistantModel, model, onDeleteMessage, onGetMessages, dispatch, assistant, topic])
 
   const onEdit = useCallback(async () => {
     let resendMessage = false
@@ -164,9 +169,11 @@ const MessageMenubar: FC<Props> = (props) => {
   }, [message, onEditMessage, onResend, t])
 
   const onResendUserMessage = useCallback(async () => {
-    await onEditMessage?.({ ...message, content: message.content })
-    onResend && onResend()
-  }, [message, onEditMessage, onResend])
+    // 不要更新当前消息，直接重新发送内容
+    // await onEditMessage?.({ ...message, content: message.content })
+    await dispatch(sendMessage(message.content, assistant, topic))
+    // onResend && onResend()
+  }, [message, dispatch, assistant, topic])
 
   const handleTranslate = useCallback(
     async (language: string) => {

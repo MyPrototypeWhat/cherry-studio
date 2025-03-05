@@ -7,7 +7,7 @@ import MessageItem from './Message'
 
 interface MessageStreamProps {
   message: Message
-  topic?: Topic
+  topic: Topic
   assistant?: Assistant
   index?: number
   hidePresetMessages?: boolean

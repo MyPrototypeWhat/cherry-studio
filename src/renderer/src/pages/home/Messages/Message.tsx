@@ -7,7 +7,7 @@ import { getContextCount, getMessageModelId } from '@renderer/services/MessagesS
 import { getModelUniqId } from '@renderer/services/ModelService'
 import { estimateHistoryTokens, estimateMessageUsage } from '@renderer/services/TokenService'
 import { useAppDispatch } from '@renderer/store'
-import { updateMessages } from '@renderer/store/messages'
+import { sendMessage, updateMessages } from '@renderer/store/messages'
 import { Assistant, Message, Topic } from '@renderer/types'
 import { classNames, runAsyncFunction } from '@renderer/utils'
 import { Divider, Dropdown } from 'antd'
@@ -23,7 +23,7 @@ import MessageTokens from './MessageTokens'
 
 interface Props {
   message: Message
-  topic?: Topic
+  topic: Topic
   assistant?: Assistant
   index?: number
   total?: number
@@ -55,7 +55,7 @@ const MessageItem: FC<Props> = ({
   const { isBubbleStyle } = useMessageStyle()
   const { showMessageDivider, messageFont, fontSize } = useSettings()
   const messageContainerRef = useRef<HTMLDivElement>(null)
-  const topic = useTopic(assistant, _topic?.id)
+  // const topic = useTopic(assistant, _topic?.id)
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const [selectedQuoteText, setSelectedQuoteText] = useState<string>('')
   const [selectedText, setSelectedText] = useState<string>('')
@@ -103,18 +103,34 @@ const MessageItem: FC<Props> = ({
         msg.usage = usage
       }
 
-      setMessage(msg)
-      const messages = onGetMessages?.()?.map((m) => (m.id === message.id ? msg : m))
-      messages && onSetMessages?.(messages)
-      topic && db.topics.update(topic.id, { messages })
+      // 先更新消息状态
+      if (topic) {
+        await dispatch(
+          updateMessages(
+            topic,
+            (onGetMessages?.() || []).map((m) => (m.id === message.id ? msg : m))
+          )
+        )
+      }
+      console.log('msg', msg)
+      // 如果是发送状态，则触发发送
+      if (msg.status === 'sending' && topic && assistant) {
+        await dispatch(sendMessage(msg.content, assistant, topic))
+        return
+      }
 
+      // 计算并更新token信息
+      const messages = onGetMessages?.()
       if (messages) {
         const tokensCount = await estimateHistoryTokens(assistant, messages)
         const contextCount = getContextCount(assistant, messages)
-        EventEmitter.emit(EVENT_NAMES.ESTIMATED_TOKEN_COUNT, { tokensCount, contextCount })
+        EventEmitter.emit(EVENT_NAMES.ESTIMATED_TOKEN_COUNT, {
+          tokensCount,
+          contextCount
+        })
       }
     },
-    [message.id, onGetMessages, topic, assistant, dispatch]
+    [message.id, assistant, topic, dispatch, onGetMessages]
   )
 
   const messageHighlightHandler = useCallback((highlight: boolean = true) => {

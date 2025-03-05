@@ -14,7 +14,7 @@ import MessageStream from './MessageStream'
 
 interface Props {
   messages: (Message & { index: number })[]
-  topic?: Topic
+  topic: Topic
   hidePresetMessages?: boolean
   onGetMessages: () => Message[]
   onSetMessages: Dispatch<SetStateAction<Message[]>>

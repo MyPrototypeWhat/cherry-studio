@@ -100,8 +100,10 @@ const messagesSlice = createSlice({
       const { topicId } = action.payload
       const streamMessage = state.streamMessagesByTopic[topicId]
       if (streamMessage && streamMessage.role === 'assistant') {
-        // 查找是否已经存在具有相同askId的助手消息
-        const existingMessageIndex = state.messagesByTopic[topicId].findIndex((m) => m.askId === streamMessage.askId)
+        // 查找是否已经存在具有相同Id的助手消息
+        const existingMessageIndex = state.messagesByTopic[topicId].findIndex(
+          (m) => m.role === 'assistant' && m.id === streamMessage.id
+        )
 
         if (existingMessageIndex !== -1) {
           // 替换已有的消息
@@ -154,7 +156,10 @@ export const {
 // Helper function to sync messages with database
 const syncMessagesWithDB = async (topicId: string, messages: Message[]) => {
   const dbMessages = convertToDBFormat(messages)
-  await db.topics.update(topicId, { messages: dbMessages })
+  await db.topics.put({
+    id: topicId,
+    messages: dbMessages
+  })
 }
 
 // Modified sendMessage thunk
@@ -216,9 +221,10 @@ export const sendMessage =
       if (isResend && options.resendAssistantMessage) {
         // 直接使用传入的助手消息，进行重置
         const messageToReset = options.resendAssistantMessage
-        const resetMessage = resetAssistantMessage(messageToReset, messageToReset.model)
+        const { model, id } = messageToReset
+        const resetMessage = resetAssistantMessage(messageToReset, model)
         // 更新状态
-        dispatch(updateMessage({ topicId: topic.id, messageId: messageToReset.id, updates: resetMessage }))
+        dispatch(updateMessage({ topicId: topic.id, messageId: id, updates: resetMessage }))
 
         // 使用重置后的消息
         assistantMessage = resetMessage
@@ -312,9 +318,9 @@ export const sendMessage =
     }
   }
 
-// 新增的resendMessage thunk，专门用于重发消息
+// resendMessage thunk，专门用于重发消息和在助手消息下@新模型
 export const resendMessage =
-  (message: Message, assistant: Assistant, topic: Topic) =>
+  (message: Message, assistant: Assistant, topic: Topic, isMentionModel = false) =>
   async (dispatch: AppDispatch, getState: () => RootState) => {
     try {
       // 获取状态
@@ -326,11 +332,11 @@ export const resendMessage =
         // 查找此用户消息对应的助手消息
         const assistantMessage = topicMessages.find((m) => m.role === 'assistant' && m.askId === message.id)
 
-        if (!assistantMessage) {
-          console.error('Cannot find assistant message to resend')
-          dispatch(setError('Cannot find assistant message to resend'))
-          return
-        }
+        // if (!assistantMessage) {
+        //   console.error('Cannot find assistant message to resend')
+        //   dispatch(setError('Cannot find assistant message to resend'))
+        //   return
+        // }
 
         return dispatch(
           sendMessage(message.content, assistant, topic, {
@@ -349,7 +355,15 @@ export const resendMessage =
         return
       }
 
-      // 重发消息，同时传递用户消息和助手消息
+      if (isMentionModel) {
+        // 重发消息，同时传递用户消息和助手消息
+        return dispatch(
+          sendMessage(userMessage.content, assistant, topic, {
+            resendUserMessage: userMessage
+          })
+        )
+      }
+
       return dispatch(
         sendMessage(userMessage.content, assistant, topic, {
           resendUserMessage: userMessage,

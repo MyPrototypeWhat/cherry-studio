@@ -266,8 +266,9 @@ const MessageMenubar: FC<Props> = (props) => {
     const selectedModel = await SelectModelPopup.show({ model })
     if (!selectedModel) return
 
-    const _message: Message = resetAssistantMessage(message, selectedModel)
-    dispatch(updateMessage({ topicId: topic.id, messageId: message.id, updates: _message }))
+    // const mentionModelMessage: Message = resetAssistantMessage(message, selectedModel)
+    // dispatch(updateMessage({ topicId: topic.id, messageId: message.id, updates: _message }))
+    await dispatch(resendMessage(message, { ...assistant, model: selectedModel }, topic, true))
   }
 
   const onUseful = useCallback(

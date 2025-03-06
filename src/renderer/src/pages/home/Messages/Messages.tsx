@@ -85,13 +85,13 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
     setTimeout(() => containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight, behavior: 'auto' }), 50)
   }, [])
 
-  const onAppendMessageMemo = useCallback(
-    async (message: Message) => {
-      const newMessages = [...messages, message]
-      await dispatch(updateMessages(topic, newMessages))
-    },
-    [topic, dispatch, messages]
-  )
+  // const onAppendMessageMemo = useCallback(
+  //   async (message: Message) => {
+  //     const newMessages = [...messages, message]
+  //     await dispatch(updateMessages(topic, newMessages))
+  //   },
+  //   [topic, dispatch, messages]
+  // )
 
   const autoRenameTopicMemo = useCallback(async () => {
     const _topic = getTopic(assistant, topic.id)
@@ -118,7 +118,7 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
 
   useEffect(() => {
     const unsubscribes = [
-      EventEmitter.on(EVENT_NAMES.APPEND_MESSAGE, onAppendMessageMemo),
+      // EventEmitter.on(EVENT_NAMES.APPEND_MESSAGE, onAppendMessageMemo),
       EventEmitter.on(EVENT_NAMES.RECEIVE_MESSAGE, () => {
         setTimeout(() => EventEmitter.emit(EVENT_NAMES.AI_AUTO_RENAME), 100)
       }),
@@ -177,17 +177,7 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
         unsub()
       }
     }
-  }, [
-    assistant,
-    autoRenameTopicMemo,
-    dispatch,
-    messages,
-    onAppendMessageMemo,
-    handleDeleteMessage,
-    scrollToBottom,
-    topic,
-    updateTopic
-  ])
+  }, [assistant, autoRenameTopicMemo, dispatch, messages, handleDeleteMessage, scrollToBottom, topic, updateTopic])
 
   useEffect(() => {
     runAsyncFunction(async () => {

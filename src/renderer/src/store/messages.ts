@@ -8,6 +8,7 @@ import { getAssistantMessage, getUserMessage, resetAssistantMessage } from '@ren
 import { AppDispatch, RootState } from '@renderer/store'
 import { Assistant, FileType, Message, Model, Topic } from '@renderer/types'
 import { clearTopicQueue, getTopicQueue, waitForTopicQueue } from '@renderer/utils/queue'
+import { throttle } from 'lodash'
 
 const convertToDBFormat = (messages: Message[]): Message[] => {
   return [...messages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
@@ -99,22 +100,29 @@ const messagesSlice = createSlice({
     commitStreamMessage: (state, action: PayloadAction<{ topicId: string }>) => {
       const { topicId } = action.payload
       const streamMessage = state.streamMessagesByTopic[topicId]
-      if (streamMessage && streamMessage.role === 'assistant') {
-        // 查找是否已经存在具有相同Id的助手消息
-        const existingMessageIndex = state.messagesByTopic[topicId].findIndex(
-          (m) => m.role === 'assistant' && m.id === streamMessage.id
-        )
 
-        if (existingMessageIndex !== -1) {
-          // 替换已有的消息
-          state.messagesByTopic[topicId][existingMessageIndex] = streamMessage
-        } else {
-          // 如果不存在，则添加新消息
-          state.messagesByTopic[topicId].push(streamMessage)
-        }
-
-        delete state.streamMessagesByTopic[topicId]
+      // 如果没有流消息，则不执行任何操作
+      if (!streamMessage || streamMessage.role !== 'assistant') {
+        return
       }
+
+      // 创建流消息的深拷贝，确保不会引用可能变化的对象
+      const stableStreamMessage = JSON.parse(JSON.stringify(streamMessage))
+
+      // 查找是否已经存在具有相同Id的助手消息
+      const existingMessageIndex =
+        state.messagesByTopic[topicId]?.findIndex((m) => m.role === 'assistant' && m.id === stableStreamMessage.id) ??
+        -1
+
+      if (existingMessageIndex !== -1) {
+        // 替换已有的消息
+        state.messagesByTopic[topicId][existingMessageIndex] = stableStreamMessage
+      } else if (state.messagesByTopic[topicId]) {
+        // 如果不存在但存在topicMessages，则添加新消息
+        state.messagesByTopic[topicId].push(stableStreamMessage)
+      }
+
+      delete state.streamMessagesByTopic[topicId]
     },
     clearStreamMessage: (state, action: PayloadAction<{ topicId: string }>) => {
       const { topicId } = action.payload
@@ -152,6 +160,21 @@ export const {
   commitStreamMessage,
   clearStreamMessage
 } = messagesSlice.actions
+
+const handleResponseMessageUpdate = (message, topicId, dispatch, getState) => {
+  dispatch(setStreamMessage({ topicId, message }))
+  // When message is complete, commit to messages and sync with DB
+  if (message.status !== 'pending') {
+    EventEmitter.emit(EVENT_NAMES.AI_AUTO_RENAME)
+    dispatch(commitStreamMessage({ topicId }))
+
+    const state = getState()
+    const topicMessages = state.messages.messagesByTopic[topicId]
+    if (topicMessages) {
+      syncMessagesWithDB(topicId, topicMessages)
+    }
+  }
+}
 
 // Helper function to sync messages with database
 const syncMessagesWithDB = async (topicId: string, messages: Message[]) => {
@@ -270,6 +293,9 @@ export const sendMessage =
               : topic.prompt
           }
 
+          // 节流
+          const throttledDispatch = throttle(handleResponseMessageUpdate, 100, { trailing: true }) // 100ms的节流时间应足够平衡用户体验和性能
+
           await fetchChatCompletion({
             message: { ...assistantMessage },
             messages: messages
@@ -280,22 +306,11 @@ export const sendMessage =
               ),
             assistant: assistantWithModel,
             onResponse: async (msg) => {
+              // 允许在回调外维护一个最新的消息状态，每次都更新这个对象，但只通过节流函数分发到Redux
               const updatedMsg = { ...msg, status: msg.status || 'pending', content: msg.content || '' }
-
-              // Update stream message instead of updating in messages
-              dispatch(setStreamMessage({ topicId: topic.id, message: { ...assistantMessage, ...updatedMsg } }))
-
-              // When message is complete, commit to messages and sync with DB
-              if (updatedMsg.status !== 'pending') {
-                EventEmitter.emit(EVENT_NAMES.AI_AUTO_RENAME)
-                dispatch(commitStreamMessage({ topicId: topic.id }))
-
-                const state = getState()
-                const topicMessages = state.messages.messagesByTopic[topic.id]
-                if (topicMessages) {
-                  await syncMessagesWithDB(topic.id, topicMessages)
-                }
-              }
+              // 创建节流函数，限制Redux更新频率
+              // 使用节流函数更新Redux
+              throttledDispatch({ ...assistantMessage, ...updatedMsg }, topic.id, dispatch, getState)
             }
           })
         } catch (error) {

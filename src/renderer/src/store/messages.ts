@@ -287,6 +287,7 @@ export const sendMessage =
 
               // When message is complete, commit to messages and sync with DB
               if (updatedMsg.status !== 'pending') {
+                EventEmitter.emit(EVENT_NAMES.AI_AUTO_RENAME)
                 dispatch(commitStreamMessage({ topicId: topic.id }))
 
                 const state = getState()

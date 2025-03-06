@@ -119,9 +119,9 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
   useEffect(() => {
     const unsubscribes = [
       // EventEmitter.on(EVENT_NAMES.APPEND_MESSAGE, onAppendMessageMemo),
-      EventEmitter.on(EVENT_NAMES.RECEIVE_MESSAGE, () => {
-        setTimeout(() => EventEmitter.emit(EVENT_NAMES.AI_AUTO_RENAME), 100)
-      }),
+      // EventEmitter.on(EVENT_NAMES.RECEIVE_MESSAGE, () => {
+      //   setTimeout(() => EventEmitter.emit(EVENT_NAMES.AI_AUTO_RENAME), 100)
+      // }),
       EventEmitter.on(EVENT_NAMES.SEND_MESSAGE, () => {
         scrollToBottom()
       }),

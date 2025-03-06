@@ -20,7 +20,13 @@ import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { getMessageTitle, resetAssistantMessage } from '@renderer/services/MessagesService'
 import { translateText } from '@renderer/services/TranslateService'
 import { useAppDispatch, useAppSelector } from '@renderer/store'
-import { resendMessage, updateMessage } from '@renderer/store/messages'
+import {
+  clearStreamMessage,
+  commitStreamMessage,
+  resendMessage,
+  setStreamMessage,
+  updateMessage
+} from '@renderer/store/messages'
 import { selectTopicMessages } from '@renderer/store/messages'
 import { Message, Model } from '@renderer/types'
 import { Assistant, Topic } from '@renderer/types'
@@ -34,7 +40,7 @@ import {
 import { Button, Dropdown, Popconfirm, Tooltip } from 'antd'
 import dayjs from 'dayjs'
 import { isEmpty } from 'lodash'
-import { FC, useCallback, useMemo, useState } from 'react'
+import { FC, memo, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 
@@ -163,13 +169,23 @@ const MessageMenubar: FC<Props> = (props) => {
       setIsTranslating(true)
 
       try {
-        await translateText(message.content, language, (text) =>
-          dispatch(updateMessage({ topicId: topic.id, messageId: message.id, updates: { translatedContent: text } }))
-        )
+        await translateText(message.content, language, (text) => {
+          // 使用 setStreamMessage 来更新翻译内容
+          dispatch(
+            setStreamMessage({
+              topicId: topic.id,
+              message: { ...message, translatedContent: text }
+            })
+          )
+        })
+
+        // 翻译完成后，提交流消息
+        dispatch(commitStreamMessage({ topicId: topic.id }))
       } catch (error) {
         console.error('Translation failed:', error)
         window.message.error({ content: t('translate.error.failed'), key: 'translate-message' })
         dispatch(updateMessage({ topicId: topic.id, messageId: message.id, updates: { translatedContent: undefined } }))
+        dispatch(clearStreamMessage({ topicId: topic.id }))
       } finally {
         setIsTranslating(false)
       }
@@ -443,4 +459,4 @@ const ReSendButton = styled(Button)`
   left: 0;
 `
 
-export default MessageMenubar
+export default memo(MessageMenubar)

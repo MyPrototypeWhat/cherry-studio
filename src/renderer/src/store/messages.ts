@@ -1,12 +1,12 @@
-import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import { createSelector } from '@reduxjs/toolkit'
 import db from '@renderer/databases'
 import { TopicManager } from '@renderer/hooks/useTopic'
 import { fetchChatCompletion } from '@renderer/services/ApiService'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { getAssistantMessage, getUserMessage, resetAssistantMessage } from '@renderer/services/MessagesService'
-import { AppDispatch, RootState } from '@renderer/store'
-import { Assistant, FileType, Message, Model, Topic } from '@renderer/types'
+import type { AppDispatch, RootState } from '@renderer/store'
+import type { Assistant, FileType, MCPServer, Message, Model, Topic } from '@renderer/types'
 import { clearTopicQueue, getTopicQueue, waitForTopicQueue } from '@renderer/utils/queue'
 import { throttle } from 'lodash'
 
@@ -206,6 +206,7 @@ export const sendMessage =
       mentionModels?: Model[]
       resendUserMessage?: Message
       resendAssistantMessage?: Message
+      enabledMCPs?: MCPServer[]
     }
   ) =>
   async (dispatch: AppDispatch, getState: () => RootState) => {

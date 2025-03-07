@@ -20,6 +20,7 @@ import { useShortcut, useShortcutDisplay } from '@renderer/hooks/useShortcuts'
 import { useSidebarIconShow } from '@renderer/hooks/useSidebarIcon'
 import { addAssistantMessagesToTopic, getDefaultTopic } from '@renderer/services/AssistantService'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
+import FileManager from '@renderer/services/FileManager'
 import { estimateTextTokens as estimateTxtTokens } from '@renderer/services/TokenService'
 import { translateText } from '@renderer/services/TranslateService'
 import WebSearchService from '@renderer/services/WebSearchService'
@@ -48,7 +49,6 @@ import MentionModelsButton from './MentionModelsButton'
 import MentionModelsInput from './MentionModelsInput'
 import SendMessageButton from './SendMessageButton'
 import TokenCount from './TokenCount'
-
 interface Props {
   assistant: Assistant
   setActiveTopic: (topic: Topic) => void
@@ -137,9 +137,10 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
 
     try {
       // Dispatch the sendMessage action with all options
+      const uploadedFiles = await FileManager.uploadFiles(files)
       dispatch(
         _sendMessage(text, assistant, assistant.topics[0], {
-          files,
+          files: uploadedFiles,
           knowledgeBaseIds: selectedKnowledgeBases?.map((base) => base.id),
           mentionModels
         })

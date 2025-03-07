@@ -284,7 +284,7 @@ export const sendMessage =
       // Use topic queue to handle request
       const queue = getTopicQueue(topic.id)
       // let assistantMessage: Message | undefined
-      dispatch(addMessage({ topicId: topic.id, messages: assistantMessages }))
+      !isResend && dispatch(addMessage({ topicId: topic.id, messages: assistantMessages }))
       for (const assistantMessage of assistantMessages) {
         // console.log('assistantMessage', assistantMessage)
 

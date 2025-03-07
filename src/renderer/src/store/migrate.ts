@@ -1253,6 +1253,7 @@ const migrateConfig = {
       }
     }
     return state
+  }
 }
 
 const migrate = createMigrate(migrateConfig as any)

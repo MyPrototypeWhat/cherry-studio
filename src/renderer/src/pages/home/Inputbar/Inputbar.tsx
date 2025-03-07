@@ -137,7 +137,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
 
     try {
       // Dispatch the sendMessage action with all options
-      await dispatch(
+      dispatch(
         _sendMessage(text, assistant, assistant.topics[0], {
           files,
           knowledgeBaseIds: selectedKnowledgeBases?.map((base) => base.id),

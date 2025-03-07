@@ -1239,20 +1239,6 @@ const migrateConfig = {
     }
 
     return state
-  },
-  '78': (state: RootState) => {
-    // 只初始化消息状态的基本结构
-    if (!state.messages) {
-      state.messages = {
-        messagesByTopic: {},
-        streamMessagesByTopic: {},
-        currentTopic: '',
-        loading: false,
-        displayCount: 20,
-        error: null
-      }
-    }
-    return state
   }
 }
 

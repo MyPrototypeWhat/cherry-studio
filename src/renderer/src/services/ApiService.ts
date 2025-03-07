@@ -33,6 +33,7 @@ export async function fetchChatCompletion({
   window.keyv.set(EVENT_NAMES.CHAT_COMPLETION_PAUSED, false)
 
   const provider = getAssistantProvider(assistant)
+  const webSearchProvider = WebSearchService.getWebSearchProvider()
   const AI = new AiProvider(provider)
 
   store.dispatch(setGenerating(true))
@@ -67,21 +68,22 @@ export async function fetchChatCompletion({
             })
           }
           onResponse({ ...message, status: 'searching' })
-          const webSearch = await WebSearchService.search(lastMessage.content)
+          const webSearch = await WebSearchService.search(webSearchProvider, lastMessage.content)
           message.metadata = {
             ...message.metadata,
-            tavily: webSearch
+            webSearch: webSearch
           }
           window.keyv.set(`web-search-${lastMessage?.id}`, webSearch)
         }
       }
     }
 
+    const allMCPTools = await window.api.mcp.listTools()
     await AI.completions({
       messages: filterUsefulMessages(messages),
       assistant,
       onFilterMessages: (messages) => (_messages = messages),
-      onChunk: ({ text, reasoning_content, usage, metrics, search, citations }) => {
+      onChunk: ({ text, reasoning_content, usage, metrics, search, citations, mcpToolResponse }) => {
         message.content = message.content + text || ''
         message.usage = usage
         message.metrics = metrics
@@ -94,6 +96,10 @@ export async function fetchChatCompletion({
           message.metadata = { ...message.metadata, groundingMetadata: search }
         }
 
+        if (mcpToolResponse) {
+          message.metadata = { ...message.metadata, mcpTools: mcpToolResponse }
+        }
+
         // Handle citations from Perplexity API
         if (isFirstChunk && citations) {
           message.metadata = {
@@ -104,7 +110,8 @@ export async function fetchChatCompletion({
         }
 
         onResponse({ ...message, status: 'pending' })
-      }
+      },
+      mcpTools: allMCPTools
     })
 
     message.status = 'success'

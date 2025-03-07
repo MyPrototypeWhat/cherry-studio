@@ -102,6 +102,8 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
 
   const [tokenCount, setTokenCount] = useState(0)
 
+  const [mentionFromKeyboard, setMentionFromKeyboard] = useState(false)
+
   const debouncedEstimate = useCallback(
     debounce((newText) => {
       if (showInputEstimatedTokens) {
@@ -180,6 +182,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
         const cursorPosition = textArea.selectionStart
         const textBeforeCursor = text.substring(0, cursorPosition)
         if (cursorPosition === 0 || textBeforeCursor.endsWith(' ')) {
+          setMentionFromKeyboard(true)
           EventEmitter.emit(EVENT_NAMES.SHOW_MODEL_SELECTOR)
           setIsMentionPopupOpen(true)
           return
@@ -545,16 +548,18 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
     setSelectedKnowledgeBases(bases ?? [])
   }
 
-  const onMentionModel = (model: Model) => {
+  const onMentionModel = (model: Model, fromKeyboard: boolean = false) => {
     const textArea = textareaRef.current?.resizableTextArea?.textArea
     if (textArea) {
-      const cursorPosition = textArea.selectionStart
-      const textBeforeCursor = text.substring(0, cursorPosition)
-      const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+      if (fromKeyboard) {
+        const cursorPosition = textArea.selectionStart
+        const textBeforeCursor = text.substring(0, cursorPosition)
+        const lastAtIndex = textBeforeCursor.lastIndexOf('@')
 
-      if (lastAtIndex !== -1) {
-        const newText = text.substring(0, lastAtIndex) + text.substring(cursorPosition)
-        setText(newText)
+        if (lastAtIndex !== -1) {
+          const newText = text.substring(0, lastAtIndex) + text.substring(cursorPosition)
+          setText(newText)
+        }
       }
 
       setMentionModels((prev) => [...prev, model])
@@ -562,6 +567,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
       setTimeout(() => {
         textareaRef.current?.focus()
       }, 0)
+      setMentionFromKeyboard(false)
     }
   }
 
@@ -570,6 +576,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
   }
 
   const onEnableWebSearch = () => {
+    console.log(assistant)
     if (!isWebSearchModel(model)) {
       if (!WebSearchService.isWebSearchEnabled()) {
         window.modal.confirm({
@@ -660,7 +667,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
               </Tooltip>
               <MentionModelsButton
                 mentionModels={mentionModels}
-                onMentionModel={onMentionModel}
+                onMentionModel={(model) => onMentionModel(model, mentionFromKeyboard)}
                 ToolbarButton={ToolbarButton}
               />
               <Tooltip placement="top" title={t('chat.input.web_search')} arrow>

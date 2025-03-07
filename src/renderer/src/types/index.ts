@@ -1,4 +1,3 @@
-import type { TavilySearchResponse } from '@tavily/core'
 import OpenAI from 'openai'
 import React from 'react'
 import { BuiltinTheme } from 'shiki'
@@ -74,7 +73,9 @@ export type Message = {
     // Perplexity
     citations?: string[]
     // Web search
-    tavily?: TavilySearchResponse
+    webSearch?: WebSearchResponse
+    // MCP Tools
+    mcpTools?: MCPToolResponse[]
   }
 }
 
@@ -291,7 +292,20 @@ export type SidebarIcon = 'assistants' | 'agents' | 'paintings' | 'translate' | 
 export type WebSearchProvider = {
   id: string
   name: string
-  apiKey: string
+  apiKey?: string
+  apiHost?: string
+  engines?: string[]
+}
+
+export type WebSearchResponse = {
+  query?: string
+  results: WebSearchResult[]
+}
+
+export type WebSearchResult = {
+  title: string
+  content: string
+  url: string
 }
 
 export type KnowledgeReference = {
@@ -300,4 +314,51 @@ export type KnowledgeReference = {
   sourceUrl: string
   type: KnowledgeItemType
   file?: FileType
+}
+
+export type MCPArgType = 'string' | 'list' | 'number'
+export type MCPEnvType = 'string' | 'number'
+export type MCPArgParameter = { [key: string]: MCPArgType }
+export type MCPEnvParameter = { [key: string]: MCPEnvType }
+
+export interface MCPServerParameter {
+  name: string
+  type: MCPArgType | MCPEnvType
+  description: string
+}
+
+export interface MCPServer {
+  name: string
+  description?: string
+  baseUrl?: string
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  isActive: boolean
+}
+
+export interface MCPToolInputSchema {
+  type: string
+  title: string
+  description?: string
+  required?: string[]
+  properties: Record<string, object>
+}
+
+export interface MCPTool {
+  id: string
+  serverName: string
+  name: string
+  description?: string
+  inputSchema: MCPToolInputSchema
+}
+
+export interface MCPConfig {
+  servers: MCPServer[]
+}
+
+export interface MCPToolResponse {
+  tool: MCPTool
+  status: string
+  response?: any
 }

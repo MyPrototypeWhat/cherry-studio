@@ -1217,6 +1217,30 @@ const migrateConfig = {
     return state
   },
   '77': (state: RootState) => {
+    if (state.websearch) {
+      if (!state.websearch.providers.find((p) => p.id === 'searxng')) {
+        state.websearch.providers.push(
+          {
+            id: 'searxng',
+            name: 'Searxng',
+            apiHost: ''
+          },
+          {
+            id: 'exa',
+            name: 'Exa',
+            apiKey: ''
+          }
+        )
+      }
+      state.websearch.providers.forEach((p) => {
+        // @ts-ignore eslint-disable-next-line
+        delete p.enabled
+      })
+    }
+
+    return state
+  },
+  '78': (state: RootState) => {
     // 只初始化消息状态的基本结构
     if (!state.messages) {
       state.messages = {
@@ -1229,7 +1253,6 @@ const migrateConfig = {
       }
     }
     return state
-  }
 }
 
 const migrate = createMigrate(migrateConfig as any)

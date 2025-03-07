@@ -104,7 +104,7 @@
       "input.web_search": "Включить веб-поиск",
       "input.web_search.button.ok": "Перейти в Настройки",
       "input.web_search.enable": "Включить веб-поиск",
-      "input.web_search.enable_content": "Необходимо включить веб-поиск в Настройки",
+      "input.web_search.enable_content": "Необходимо предварительно проверить подключение к веб-поиску в настройках",
       "input.auto_resize": "Автоматическая высота",
       "message.new.branch": "Новая ветка",
       "message.new.branch.created": "Новая ветка создана",
@@ -479,7 +479,13 @@
       },
       "vision": "Визуальные",
       "websearch": "Веб-поисковые",
-      "edit": "Редактировать модель"
+      "edit": "Редактировать модель", 
+      "no_matches": "Нет доступных моделей"
+    },
+    "navbar": {
+      "expand": "Развернуть диалоговое окно",
+      "show_sidebar": "Показать боковую панель",
+      "hide_sidebar": "Скрыть боковую панель"
     },
     "ollama": {
       "keep_alive_time.description": "Время в минутах, в течение которого модель остается активной, по умолчанию 5 минут.",
@@ -746,6 +752,8 @@
       "models.add.model_id.tooltip": "Пример: gpt-3.5-turbo",
       "models.add.model_name": "Имя модели",
       "models.add.model_name.placeholder": "Необязательно, например, GPT-4",
+      "models.manage.add_whole_group": "Добавить всю группу",
+      "models.manage.remove_whole_group": "Удалить всю группу",
       "models.default_assistant_model": "Модель ассистента по умолчанию",
       "models.default_assistant_model_description": "Модель, используемая при создании нового ассистента, если ассистент не имеет настроенной модели, будет использоваться эта модель",
       "models.empty": "Модели не найдены",
@@ -858,7 +866,40 @@
         "blacklist_description": "Результаты из следующих веб-сайтов не будут отображаться в результатах поиска",
         "blacklist_tooltip": "Пожалуйста, используйте следующий формат (разделенный переносами строк)\nexample.com\nhttps://www.example.com\nhttps://example.com\n*://*.example.com",
         "search_max_result": "Количество результатов поиска",
-        "search_result_default": "По умолчанию"
+        "search_result_default": "По умолчанию",
+        "check": "проверка",
+        "search_provider": "поиск сервисного провайдера",
+        "search_provider_placeholder": "Выберите поставщика поисковых услуг",
+        "no_provider_selected": "Пожалуйста, выберите поставщика поисковых услуг, затем проверьте.",
+        "check_failed": "Проверка не прошла"
+      },
+      "mcp": {
+        "title": "Серверы MCP",
+        "config_description": "Настройка серверов протокола контекста модели",
+        "description": "Описание",
+        "addServer": "Добавить сервер",
+        "editServer": "Редактировать сервер",
+        "name": "Имя",
+        "type": "Тип",
+        "url": "URL",
+        "command": "Команда",
+        "args": "Аргументы",
+        "argsTooltip": "Каждый аргумент с новой строки",
+        "env": "Переменные окружения",
+        "envTooltip": "Формат: KEY=value, по одной на строку",
+        "active": "Активен",
+        "actions": "Действия",
+        "noServers": "Серверы не настроены",
+        "nameRequired": "Пожалуйста, введите имя сервера",
+        "commandRequired": "Пожалуйста, введите команду",
+        "confirmDelete": "Удалить сервер",
+        "confirmDeleteMessage": "Вы уверены, что хотите удалить этот сервер?",
+        "addSuccess": "Сервер успешно добавлен",
+        "updateSuccess": "Сервер успешно обновлен",
+        "deleteSuccess": "Сервер успешно удален",
+        "duplicateName": "Сервер с таким именем уже существует",
+        "serverSingular": "сервер",
+        "serverPlural": "серверы"
       }
     },
     "translate": {
@@ -897,7 +938,9 @@
     },
     "code_block": {
       "enable_wrap": "Перенос строки",
-      "disable_wrap": "Отменить перенос строки"
+      "disable_wrap": "Отменить перенос строки",
+      "expand": "Развернуть",
+      "collapse": "Свернуть"
     },
     "backup": {
       "title": "Резервное копирование данных",
@@ -929,3 +972,4 @@
     }
   }
 }
+

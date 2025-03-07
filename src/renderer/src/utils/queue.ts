@@ -11,7 +11,7 @@ const requestQueues: { [topicId: string]: PQueue } = {}
 export const getTopicQueue = (topicId: string): PQueue => {
   if (!requestQueues[topicId]) {
     requestQueues[topicId] = new PQueue({
-      concurrency: 1,
+      concurrency: 4,
       timeout: 1000 * 60 * 5, // 5 minutes
       throwOnTimeout: false
     })

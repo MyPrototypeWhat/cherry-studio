@@ -37,7 +37,7 @@ const MessageStream: React.FC<MessageStreamProps> = ({
   onGetMessages
 }) => {
   // 获取流式消息
-  const streamMessage = useAppSelector((state) => selectStreamMessage(state, _message.topicId))
+  const streamMessage = useAppSelector((state) => selectStreamMessage(state, _message.topicId, _message.id))
   // 获取常规消息
   const regularMessage = useAppSelector((state) => {
     // 如果是用户消息，直接使用传入的_message

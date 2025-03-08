@@ -263,7 +263,7 @@ export const sendMessage =
       // 使用用户消息
       let userMessage: Message
       if (isResend) {
-        userMessage = options.resendUserMessage!
+        userMessage = options.resendUserMessage
       } else {
         // 创建新的用户消息
         userMessage = getUserMessage({ assistant, topic, type: 'text', content })

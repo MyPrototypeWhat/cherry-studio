@@ -68,21 +68,21 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
     setHasMore(messages.length > displayCount)
   }, [messages, displayCount])
 
-  const handleDeleteMessage = useCallback(
-    async (message: Message) => {
-      const newMessages = messages.filter((m) => m.id !== message.id)
-      await dispatch(updateMessages(topic, newMessages))
-    },
-    [dispatch, topic, messages]
-  )
+  // const handleDeleteMessage = useCallback(
+  //   async (message: Message) => {
+  //     const newMessages = messages.filter((m) => m.id !== message.id)
+  //     await dispatch(updateMessages(topic, newMessages))
+  //   },
+  //   [dispatch, topic, messages]
+  // )
 
-  const handleDeleteGroupMessages = useCallback(
-    async (askId: string) => {
-      const newMessages = messages.filter((m) => m.askId !== askId)
-      await dispatch(updateMessages(topic, newMessages))
-    },
-    [dispatch, topic, messages]
-  )
+  // const handleDeleteGroupMessages = useCallback(
+  //   async (askId: string) => {
+  //     const newMessages = messages.filter((m) => m.askId !== askId)
+  //     await dispatch(updateMessages(topic, newMessages))
+  //   },
+  //   [dispatch, topic, messages]
+  // )
 
   const maxWidth = useMemo(() => {
     const showRightTopics = showTopics && topicPosition === 'right'
@@ -165,7 +165,8 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
       EventEmitter.on(EVENT_NAMES.NEW_CONTEXT, async () => {
         const lastMessage = last(messages)
         if (lastMessage?.type === 'clear') {
-          handleDeleteMessage(lastMessage)
+          // TODO
+          // handleDeleteMessage(lastMessage)
           scrollToBottom()
           return
         }
@@ -179,13 +180,12 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
       })
     ]
 
-    return () => unsubscribes.forEach((unsub) => unsub())
-  }, [assistant, dispatch, handleDeleteMessage, scrollToBottom, topic, updateTopic])
-
-  useEffect(() => {
-    const unsubscribes = [EventEmitter.on(EVENT_NAMES.AI_AUTO_RENAME, autoRenameTopic)]
-    return () => unsubscribes.forEach((unsub) => unsub())
-  }, [autoRenameTopic])
+    return () => {
+      for (const unsub of unsubscribes) {
+        unsub()
+      }
+    }
+  }, [assistant, autoRenameTopicMemo, dispatch, messages, scrollToBottom, topic, updateTopic])
 
   useEffect(() => {
     runAsyncFunction(async () => {
@@ -245,8 +245,6 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
                 topic={topic}
                 hidePresetMessages={assistant.settings?.hideMessages}
                 onSetMessages={setDisplayMessages}
-                onDeleteMessage={handleDeleteMessage}
-                onDeleteGroupMessages={handleDeleteGroupMessages}
                 onGetMessages={() => messages}
               />
             ))}

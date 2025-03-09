@@ -27,7 +27,7 @@ import WebSearchService from '@renderer/services/WebSearchService'
 import store, { useAppDispatch, useAppSelector } from '@renderer/store'
 import { sendMessage as _sendMessage } from '@renderer/store/messages'
 import { setGenerating, setSearching } from '@renderer/store/runtime'
-import { Assistant, FileType, KnowledgeBase, MCPServer, MCPServer, Message, Model, Topic } from '@renderer/types'
+import { Assistant, FileType, KnowledgeBase, MCPServer, Message, Model, Topic } from '@renderer/types'
 import { classNames, delay, getFileExtension } from '@renderer/utils'
 import { abortCompletion } from '@renderer/utils/abortController'
 import { getFilesFromDropEvent } from '@renderer/utils/input'
@@ -75,7 +75,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
   } = useSettings()
   const [expended, setExpend] = useState(false)
   const [estimateTokenCount, setEstimateTokenCount] = useState(0)
-  const [contextCount, setContextCount] = useState(0)
+  const [contextCount, setContextCount] = useState({ current: 0, max: 0 })
   const generating = useAppSelector((state) => state.runtime.generating)
   const textareaRef = useRef<TextAreaRef>(null)
   const [files, setFiles] = useState<FileType[]>(_files)
@@ -158,7 +158,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
     } catch (error) {
       console.error('Failed to send message:', error)
     }
-  }, [inputEmpty, text, assistant, files, selectedKnowledgeBases, mentionModels, dispatch])
+  }, [inputEmpty, files, dispatch, text, assistant, selectedKnowledgeBases, mentionModels, enabledMCPs])
 
   const translate = async () => {
     if (isTranslating) {
@@ -503,7 +503,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
       }),
       EventEmitter.on(EVENT_NAMES.ESTIMATED_TOKEN_COUNT, ({ tokensCount, contextCount }) => {
         _setEstimateTokenCount(tokensCount)
-        setContextCount(contextCount)
+        setContextCount({ current: contextCount.current, max: contextCount.max }) // 现在contextCount是一个对象而不是单个数值
       }),
       EventEmitter.on(EVENT_NAMES.ADD_NEW_TOPIC, addNewTopic),
       EventEmitter.on(EVENT_NAMES.QUOTE_TEXT, (quotedText: string) => {
@@ -685,7 +685,6 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
                 onMentionModel={(model) => onMentionModel(model, mentionFromKeyboard)}
                 ToolbarButton={ToolbarButton}
               />
-              <MCPToolsButton enabledMCPs={enabledMCPs} onEnableMCP={toggelEnableMCP} ToolbarButton={ToolbarButton} />
               <Tooltip placement="top" title={t('chat.input.web_search')} arrow>
                 <ToolbarButton type="text" onClick={onEnableWebSearch}>
                   <GlobalOutlined
@@ -693,6 +692,16 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
                   />
                 </ToolbarButton>
               </Tooltip>
+              {showKnowledgeIcon && (
+                <KnowledgeBaseButton
+                  selectedBases={selectedKnowledgeBases}
+                  onSelect={handleKnowledgeBaseSelect}
+                  ToolbarButton={ToolbarButton}
+                  disabled={files.length > 0}
+                />
+              )}
+              <MCPToolsButton enabledMCPs={enabledMCPs} onEnableMCP={toggelEnableMCP} ToolbarButton={ToolbarButton} />
+              <AttachmentButton model={model} files={files} setFiles={setFiles} ToolbarButton={ToolbarButton} />
               <Tooltip placement="top" title={t('chat.input.clear', { Command: cleanTopicShortcut })} arrow>
                 <Popconfirm
                   title={t('chat.input.clear.content')}
@@ -706,15 +715,6 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic }) => {
                   </ToolbarButton>
                 </Popconfirm>
               </Tooltip>
-              {showKnowledgeIcon && (
-                <KnowledgeBaseButton
-                  selectedBases={selectedKnowledgeBases}
-                  onSelect={handleKnowledgeBaseSelect}
-                  ToolbarButton={ToolbarButton}
-                  disabled={files.length > 0}
-                />
-              )}
-              <AttachmentButton model={model} files={files} setFiles={setFiles} ToolbarButton={ToolbarButton} />
               <Tooltip placement="top" title={t('chat.input.new.context', { Command: newContextShortcut })} arrow>
                 <ToolbarButton type="text" onClick={onNewContext}>
                   <PicCenterOutlined />

@@ -13,7 +13,7 @@ import { useAppDispatch, useAppSelector } from '@renderer/store'
 import {
   clearTopicMessages,
   selectDisplayCount,
-  selectLoading,
+  selectTopicLoading,
   selectTopicMessages,
   updateMessages
 } from '@renderer/store/messages'
@@ -42,7 +42,7 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
   const { showTopics, topicPosition, showAssistants, enableTopicNaming } = useSettings()
   const { updateTopic } = useAssistant(assistant.id)
   const messages = useAppSelector((state) => selectTopicMessages(state, topic.id))
-  const loading = useAppSelector(selectLoading)
+  const loading = useAppSelector((state) => selectTopicLoading(state, topic.id))
   const displayCount = useAppSelector(selectDisplayCount)
   const dispatch = useAppDispatch()
   const containerRef = useRef<HTMLDivElement>(null)

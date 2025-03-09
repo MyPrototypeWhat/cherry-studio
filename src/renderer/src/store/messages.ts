@@ -102,6 +102,7 @@ const messagesSlice = createSlice({
         state.messagesByTopic[topicId].push(...messages)
       } else {
         // 添加单条消息
+        // 添加单条消息
         state.messagesByTopic[topicId].push(messages)
       }
     },
@@ -249,6 +250,7 @@ export const sendMessage =
   ) =>
   async (dispatch: AppDispatch, getState: () => RootState) => {
     try {
+      dispatch(setTopicLoading({ topicId: topic.id, loading: true }))
       dispatch(setTopicLoading({ topicId: topic.id, loading: true }))
 
       // Initialize topic messages if not exists
@@ -420,7 +422,26 @@ export const resendMessage =
 
 // Modified loadTopicMessages thunk
 export const loadTopicMessagesThunk = (topic: Topic) => async (dispatch: AppDispatch) => {
+export const loadTopicMessagesThunk = (topic: Topic) => async (dispatch: AppDispatch) => {
   try {
+    // 设置会话的loading状态
+    dispatch(setTopicLoading({ topicId: topic.id, loading: true }))
+    dispatch(setCurrentTopic(topic))
+    try {
+      // 使用 getTopic 获取会话对象
+      const topicWithDB = await TopicManager.getTopic(topic.id)
+      if (topicWithDB) {
+        // 如果数据库中有会话，加载消息，保存会话
+        dispatch(loadTopicMessages({ topicId: topic.id, messages: topicWithDB.messages }))
+      }
+      // else {
+      //   // 如果找不到，可以将当前会话设为 null
+      //   dispatch(setCurrentTopic(null))
+      // }
+    } catch (error) {
+      console.error('Failed to get complete topic:', error)
+      dispatch(setCurrentTopic(null))
+    }
     // 设置会话的loading状态
     dispatch(setTopicLoading({ topicId: topic.id, loading: true }))
     dispatch(setCurrentTopic(topic))
@@ -484,6 +505,9 @@ export const updateMessages = (topic: Topic, messages: Message[]) => async (disp
 
     // 更新 Redux store
     dispatch(loadTopicMessages({ topicId: topic.id, messages }))
+
+    // 使用 syncMessagesWithDB 函数同步到数据库
+    // Redux store 已经在前面更新，无需额外缓存
   } catch (error) {
     dispatch(setError(error instanceof Error ? error.message : 'Failed to update messages'))
   }

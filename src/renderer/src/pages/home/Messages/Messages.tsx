@@ -170,22 +170,13 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
       })
     ]
 
-<<<<<<< HEAD
-    return () => {
-      for (const unsub of unsubscribes) {
-        unsub()
-      }
-    }
-  }, [assistant, autoRenameTopicMemo, dispatch, messages, scrollToBottom, topic, updateTopic])
-=======
     return () => unsubscribes.forEach((unsub) => unsub())
-  }, [assistant, dispatch, handleDeleteMessage, scrollToBottom, topic, updateTopic])
+  }, [assistant, dispatch, scrollToBottom, topic, updateTopic])
 
   useEffect(() => {
     const unsubscribes = [EventEmitter.on(EVENT_NAMES.AI_AUTO_RENAME, autoRenameTopic)]
     return () => unsubscribes.forEach((unsub) => unsub())
   }, [autoRenameTopic])
->>>>>>> main
 
   useEffect(() => {
     runAsyncFunction(async () => {
@@ -246,7 +237,7 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
                 topic={topic}
                 hidePresetMessages={assistant.settings?.hideMessages}
                 onSetMessages={setDisplayMessages}
-                onGetMessages={() => messages}
+                // onGetMessages={() => messages}
               />
             ))}
           </ScrollContainer>

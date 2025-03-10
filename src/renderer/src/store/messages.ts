@@ -28,30 +28,30 @@ const initialState: MessagesState = {
   error: null
 }
 
-const MAX_RECENT_TOPICS = 10
+// const MAX_RECENT_TOPICS = 10
 
-// 只初始化最近的会话消息
-export const initializeMessagesState = createAsyncThunk('messages/initialize', async () => {
-  try {
-    // 获取所有会话的基本信息
-    const recentTopics = await TopicManager.getTopicLimit(MAX_RECENT_TOPICS)
-    console.log('recentTopics', recentTopics)
-    const messagesByTopic: Record<string, Message[]> = {}
+// // 只初始化最近的会话消息
+// export const initializeMessagesState = createAsyncThunk('messages/initialize', async () => {
+//   try {
+//     // 获取所有会话的基本信息
+//     const recentTopics = await TopicManager.getTopicLimit(MAX_RECENT_TOPICS)
+//     console.log('recentTopics', recentTopics)
+//     const messagesByTopic: Record<string, Message[]> = {}
 
-    // 只加载最近会话的消息
-    for (const topic of recentTopics) {
-      if (topic.messages && topic.messages.length > 0) {
-        const messages = topic.messages.map((msg) => ({ ...msg }))
-        messagesByTopic[topic.id] = messages
-      }
-    }
+//     // 只加载最近会话的消息
+//     for (const topic of recentTopics) {
+//       if (topic.messages && topic.messages.length > 0) {
+//         const messages = topic.messages.map((msg) => ({ ...msg }))
+//         messagesByTopic[topic.id] = messages
+//       }
+//     }
 
-    return messagesByTopic
-  } catch (error) {
-    console.error('Failed to initialize recent messages:', error)
-    return {}
-  }
-})
+//     return messagesByTopic
+//   } catch (error) {
+//     console.error('Failed to initialize recent messages:', error)
+//     return {}
+//   }
+// })
 
 // 新增准备会话消息的函数，实现懒加载机制
 export const prepareTopicMessages = createAsyncThunk(
@@ -175,20 +175,20 @@ const messagesSlice = createSlice({
         delete state.streamMessagesByTopic[topicId][messageId]
       }
     }
-  },
-  extraReducers: (builder) => {
-    builder
-      .addCase(initializeMessagesState.pending, (state) => {
-        state.error = null
-      })
-      .addCase(initializeMessagesState.fulfilled, (state, action) => {
-        console.log('initializeMessagesState.fulfilled', action.payload)
-        state.messagesByTopic = action.payload
-      })
-      .addCase(initializeMessagesState.rejected, (state, action) => {
-        state.error = action.error.message || 'Failed to load messages'
-      })
   }
+  // extraReducers: (builder) => {
+  //   builder
+  //     .addCase(initializeMessagesState.pending, (state) => {
+  //       state.error = null
+  //     })
+  //     .addCase(initializeMessagesState.fulfilled, (state, action) => {
+  //       console.log('initializeMessagesState.fulfilled', action.payload)
+  //       state.messagesByTopic = action.payload
+  //     })
+  //     .addCase(initializeMessagesState.rejected, (state, action) => {
+  //       state.error = action.error.message || 'Failed to load messages'
+  //     })
+  // }
 })
 
 export const {
@@ -295,7 +295,6 @@ export const sendMessage =
       // 处理助手消息
       // let assistantMessage: Message
       let assistantMessages: Message[] = []
-
       // 使用助手消息
       if (isResend && options.resendAssistantMessage) {
         // 直接使用传入的助手消息，进行重置
@@ -304,7 +303,6 @@ export const sendMessage =
         const resetMessage = resetAssistantMessage(messageToReset, model)
         // 更新状态
         dispatch(updateMessage({ topicId: topic.id, messageId: id, updates: resetMessage }))
-        console.log('resetMessage', resetMessage)
         // 使用重置后的消息
         assistantMessages.push(resetMessage)
       } else {
@@ -327,19 +325,18 @@ export const sendMessage =
         }
       }
 
-      // Use topic queue to handle request
+      // 如果不是重发
+      !options?.resendAssistantMessage &&
+        dispatch(
+          addMessage({
+            topicId: topic.id,
+            messages: !isResend ? [userMessage, ...assistantMessages] : assistantMessages
+          })
+        )
+
       const queue = getTopicQueue(topic.id)
-
-      // let assistantMessage: Message | undefined
-      if (!isResend) {
-        // 如果不是重发
-        dispatch(addMessage({ topicId: topic.id, messages: [userMessage, ...assistantMessages] }))
-        // dispatch(addMessage({ topicId: topic.id, messages: userMessage }))
-      }
-
       for (const assistantMessage of assistantMessages) {
         // console.log('assistantMessage', assistantMessage)
-
         // Set as stream message instead of adding to messages
         dispatch(setStreamMessage({ topicId: topic.id, message: assistantMessage }))
 
@@ -350,7 +347,7 @@ export const sendMessage =
         if (currentTopicMessages) {
           await syncMessagesWithDB(topic.id, currentTopicMessages)
         }
-
+        // 保证请求有序，防止请求静态，限制并发数量
         queue.add(async () => {
           try {
             const state = getState()
@@ -437,7 +434,7 @@ export const resendMessage =
 
       // 如果是助手消息，找到对应的用户消息
       const userMessage = topicMessages.find((m) => m.id === message.askId && m.role === 'user')
-
+      console.log('topicMessages,topicMessages', topicMessages)
       if (!userMessage) {
         console.error('Cannot find original user message to resend')
         return dispatch(setError('Cannot find original user message to resend'))

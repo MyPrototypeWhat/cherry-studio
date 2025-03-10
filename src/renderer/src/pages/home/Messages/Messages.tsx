@@ -39,21 +39,12 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
   const { t } = useTranslation()
   const { showTopics, topicPosition, showAssistants, enableTopicNaming } = useSettings()
   const { updateTopic } = useAssistant(assistant.id)
-  // const messages = useAppSelector((state) => selectTopicMessages(state, topic.id))
-  // const loading = useAppSelector((state) => selectTopicLoading(state, topic.id))
-  // const displayCount = useAppSelector(selectDisplayCount)
   const dispatch = useAppDispatch()
   const containerRef = useRef<HTMLDivElement>(null)
   const [displayMessages, setDisplayMessages] = useState<Message[]>([])
   const [hasMore, setHasMore] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const { messages, loading, displayCount, updateMessages, clearTopicMessages } = useMessageOperations(topic)
-
-  // const messagesRef = useRef<Message[]>([])
-
-  // useEffect(() => {
-  //   messagesRef.current = messages
-  // }, [messages])
 
   useEffect(() => {
     const reversedMessages = [...messages].reverse()
@@ -62,22 +53,6 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
     setDisplayMessages(newDisplayMessages)
     setHasMore(messages.length > displayCount)
   }, [messages, displayCount])
-
-  // const handleDeleteMessage = useCallback(
-  //   async (message: Message) => {
-  //     const newMessages = messages.filter((m) => m.id !== message.id)
-  //     await dispatch(updateMessages(topic, newMessages))
-  //   },
-  //   [dispatch, topic, messages]
-  // )
-
-  // const handleDeleteGroupMessages = useCallback(
-  //   async (askId: string) => {
-  //     const newMessages = messages.filter((m) => m.askId !== askId)
-  //     await dispatch(updateMessages(topic, newMessages))
-  //   },
-  //   [dispatch, topic, messages]
-  // )
 
   const maxWidth = useMemo(() => {
     const showRightTopics = showTopics && topicPosition === 'right'
@@ -246,7 +221,6 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
                 topic={topic}
                 hidePresetMessages={assistant.settings?.hideMessages}
                 onSetMessages={setDisplayMessages}
-                onGetMessages={() => messages}
               />
             ))}
           </ScrollContainer>

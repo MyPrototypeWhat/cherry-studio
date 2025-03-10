@@ -133,9 +133,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
   _files = files
 
   const sendMessage = useCallback(async () => {
-    await modelGenerating()
-
-    if (inputEmpty) {
+    if (inputEmpty || loading) {
       return
     }
 
@@ -143,7 +141,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
       // Dispatch the sendMessage action with all options
       const uploadedFiles = await FileManager.uploadFiles(files)
       dispatch(
-        _sendMessage(text, assistant, assistant.topics[0], {
+        _sendMessage(text, assistant, topic, {
           files: uploadedFiles,
           knowledgeBaseIds: selectedKnowledgeBases?.map((base) => base.id),
           mentionModels,
@@ -285,7 +283,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
   }, [addTopic, assistant, clickAssistantToShowTopic, setActiveTopic, setModel])
 
   const clearTopic = async () => {
-    if (generating) {
+    if (loading) {
       onPause()
       await delay(1)
     }
@@ -301,7 +299,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
   }
 
   const onNewContext = () => {
-    if (generating) return onPause()
+    if (loading) return onPause()
     EventEmitter.emit(EVENT_NAMES.NEW_CONTEXT)
   }
 
@@ -480,7 +478,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
   }, [isDragging, handleDrag, handleDragEnd])
 
   useShortcut('new_topic', () => {
-    if (!generating) {
+    if (!loading) {
       addNewTopic()
       EventEmitter.emit(EVENT_NAMES.SHOW_TOPIC_SIDEBAR)
       textareaRef.current?.focus()

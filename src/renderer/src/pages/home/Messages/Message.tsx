@@ -106,19 +106,6 @@ const MessageItem: FC<Props> = ({
     return () => unsubscribes.forEach((unsub) => unsub())
   }, [message.id, messageHighlightHandler])
 
-  // useEffect(() => {
-  //   if (message.role === 'user' && !message.usage && topic) {
-  //     runAsyncFunction(async () => {
-  //       const usage = await estimateMessageUsage(message)
-  //       if (topic) {
-  //         await dispatch(
-  //           updateMessages(topic, onGetMessages?.()?.map((m) => (m.id === message.id ? { ...m, usage } : m)) || [])
-  //         )
-  //       }
-  //     })
-  //   }
-  // }, [message, topic, dispatch, onGetMessages])
-
   if (hidePresetMessages && message.isPreset) {
     return null
   }

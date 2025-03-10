@@ -65,7 +65,6 @@ db.topics.hook('creating', (_, obj: any) => {
 
 db.topics.hook('updating', (modifications: any) => {
   if (typeof modifications === 'object') {
-    console.log('updating', modifications)
     modifications.updatedAt = new Date().toISOString()
   }
 })

@@ -16,7 +16,6 @@ import {
 import type { Assistant, Message, Topic } from '@renderer/types'
 import { abortCompletion } from '@renderer/utils/abortController'
 import { useCallback } from 'react'
-
 /**
  * 自定义Hook，提供消息操作相关的功能
  *

@@ -3,6 +3,7 @@ import { LOAD_MORE_COUNT } from '@renderer/config/constant'
 import db from '@renderer/databases'
 import { useAssistant } from '@renderer/hooks/useAssistant'
 import { useMessageOperations } from '@renderer/hooks/useMessageOperations'
+import { useMessageOperations } from '@renderer/hooks/useMessageOperations'
 import { useSettings } from '@renderer/hooks/useSettings'
 import { useShortcut } from '@renderer/hooks/useShortcuts'
 import { getTopic } from '@renderer/hooks/useTopic'
@@ -11,6 +12,7 @@ import { getDefaultTopic } from '@renderer/services/AssistantService'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { getContextCount, getGroupedMessages, getUserMessage } from '@renderer/services/MessagesService'
 import { estimateHistoryTokens } from '@renderer/services/TokenService'
+import { useAppDispatch } from '@renderer/store'
 import { useAppDispatch } from '@renderer/store'
 import type { Assistant, Message, Topic } from '@renderer/types'
 import {
@@ -171,6 +173,15 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
     ]
 
     return () => unsubscribes.forEach((unsub) => unsub())
+  }, [assistant, dispatch, scrollToBottom, topic, updateTopic])
+
+  useEffect(() => {
+    const unsubscribes = [EventEmitter.on(EVENT_NAMES.AI_AUTO_RENAME, autoRenameTopic)]
+    return () => {
+      for (const unsub of unsubscribes) {
+        unsub()
+      }
+    }
   }, [assistant, dispatch, scrollToBottom, topic, updateTopic])
 
   useEffect(() => {

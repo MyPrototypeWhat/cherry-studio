@@ -2,16 +2,18 @@ import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { useAppDispatch, useAppSelector } from '@renderer/store'
 import {
   clearStreamMessage,
+  clearTopicMessages,
   commitStreamMessage,
   resendMessage,
+  selectDisplayCount,
+  selectTopicLoading,
   selectTopicMessages,
   setStreamMessage,
   updateMessage,
   updateMessages
 } from '@renderer/store/messages'
-import { Assistant, Message, Topic } from '@renderer/types'
+import type { Assistant, Message, Topic } from '@renderer/types'
 import { useCallback } from 'react'
-
 /**
  * 自定义Hook，提供消息操作相关的功能
  *
@@ -114,20 +116,44 @@ export function useMessageOperations(topic: Topic) {
   )
 
   /**
+   * 清除会话消息
+   */
+  const clearTopicMessagesAction = useCallback(
+    async (_topicId?: string) => {
+      await dispatch(clearTopicMessages(_topicId || topic.id))
+    },
+    [dispatch, topic.id]
+  )
+
+  /**
+   * 更新消息数据
+   */
+  const updateMessagesAction = useCallback(
+    async (messages: Message[]) => {
+      await dispatch(updateMessages(topic, messages))
+    },
+    [dispatch, topic]
+  )
+
+  /**
    * 创建新的上下文（clear message）
    */
   const createNewContext = useCallback(async () => {
     EventEmitter.emit(EVENT_NAMES.NEW_CONTEXT)
   }, [])
 
-  /**
-   * 获取当前消息列表
-   */
-  const getMessages = useCallback(() => messages, [messages])
+  const loading = useAppSelector((state) => selectTopicLoading(state, topic.id))
+  const displayCount = useAppSelector(selectDisplayCount)
+  // /**
+  //  * 获取当前消息列表
+  //  */
+  // const getMessages = useCallback(() => messages, [messages])
 
   return {
     messages,
-    getMessages,
+    loading,
+    displayCount,
+    updateMessages: updateMessagesAction,
     deleteMessage,
     deleteGroupMessages,
     editMessage,
@@ -136,6 +162,7 @@ export function useMessageOperations(topic: Topic) {
     setStreamMessage: setStreamMessageAction,
     commitStreamMessage: commitStreamMessageAction,
     clearStreamMessage: clearStreamMessageAction,
-    createNewContext
+    createNewContext,
+    clearTopicMessages: clearTopicMessagesAction
   }
 }

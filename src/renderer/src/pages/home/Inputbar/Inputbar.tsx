@@ -134,6 +134,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
 
   const sendMessage = useCallback(async () => {
     if (inputEmpty || loading) {
+    if (inputEmpty || loading) {
       return
     }
 

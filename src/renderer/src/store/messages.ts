@@ -28,7 +28,15 @@ const initialState: MessagesState = {
 }
 
 // const MAX_RECENT_TOPICS = 10
+// const MAX_RECENT_TOPICS = 10
 
+// // 只初始化最近的会话消息
+// export const initializeMessagesState = createAsyncThunk('messages/initialize', async () => {
+//   try {
+//     // 获取所有会话的基本信息
+//     const recentTopics = await TopicManager.getTopicLimit(MAX_RECENT_TOPICS)
+//     console.log('recentTopics', recentTopics)
+//     const messagesByTopic: Record<string, Message[]> = {}
 // // 只初始化最近的会话消息
 // export const initializeMessagesState = createAsyncThunk('messages/initialize', async () => {
 //   try {
@@ -313,6 +321,7 @@ export const sendMessage =
         if (currentTopicMessages) {
           await syncMessagesWithDB(topic.id, currentTopicMessages)
         }
+        // 保证请求有序，防止请求静态，限制并发数量
         // 保证请求有序，防止请求静态，限制并发数量
         queue.add(async () => {
           try {

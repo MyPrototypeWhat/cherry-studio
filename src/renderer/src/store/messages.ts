@@ -484,9 +484,6 @@ export const updateMessages = (topic: Topic, messages: Message[]) => async (disp
 
     // 更新 Redux store
     dispatch(loadTopicMessages({ topicId: topic.id, messages }))
-
-    // 使用 syncMessagesWithDB 函数同步到数据库
-    // Redux store 已经在前面更新，无需额外缓存
   } catch (error) {
     dispatch(setError(error instanceof Error ? error.message : 'Failed to update messages'))
   }

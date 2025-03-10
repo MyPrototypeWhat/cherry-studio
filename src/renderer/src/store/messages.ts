@@ -84,7 +84,7 @@ const messagesSlice = createSlice({
   reducers: {
     setTopicLoading: (state, action: PayloadAction<{ topicId: string; loading: boolean }>) => {
       const { topicId, loading } = action.payload
-      state.loadingByTopic[state.currentTopic?.id] = loading
+      state.loadingByTopic[topicId] = loading
     },
     setError: (state, action: PayloadAction<string | null>) => {
       state.error = action.payload
@@ -220,6 +220,7 @@ const handleResponseMessageUpdate = (message, topicId, dispatch, getState) => {
       if (topicMessages) {
         syncMessagesWithDB(topicId, topicMessages)
       }
+      dispatch(setTopicLoading({ topicId, loading: false }))
     }
   }
 }
@@ -232,7 +233,7 @@ const syncMessagesWithDB = async (topicId: string, messages: Message[]) => {
       messages
     })
   } else {
-    await db.topics.add({ id: topic.id, messages })
+    await db.topics.add({ id: topicId, messages })
   }
 }
 
@@ -303,7 +304,7 @@ export const sendMessage =
         const resetMessage = resetAssistantMessage(messageToReset, model)
         // 更新状态
         dispatch(updateMessage({ topicId: topic.id, messageId: id, updates: resetMessage }))
-
+        console.log('resetMessage', resetMessage)
         // 使用重置后的消息
         assistantMessages.push(resetMessage)
       } else {
@@ -407,7 +408,6 @@ export const sendMessage =
     } catch (error: any) {
       console.error('Error in sendMessage:', error)
       dispatch(setError(error.message))
-    } finally {
       dispatch(setTopicLoading({ topicId: topic.id, loading: false }))
     }
   }
@@ -555,7 +555,7 @@ export const selectTopicMessages = createSelector(
 export const selectTopicLoading = (state: RootState, topicId?: string): boolean => {
   const messagesState = state.messages as MessagesState
   const currentTopicId = topicId || messagesState.currentTopic?.id || ''
-  return currentTopicId ? messagesState.loadingByTopic[currentTopicId] || false : false
+  return currentTopicId ? (messagesState.loadingByTopic[currentTopicId] ?? false) : false
 }
 
 export const selectDisplayCount = (state: RootState): number => {

@@ -52,7 +52,11 @@ export async function getTopicById(topicId: string) {
 // 只有静态方法,没必要用class，可以export {}
 export const TopicManager = {
   async getTopicLimit(limit: number) {
-    return await db.topics.orderBy('sequence').reverse().limit(limit).toArray()
+    return await db.topics
+      .orderBy('updatedAt') // 按 updatedAt 排序（默认升序）
+      .reverse() // 逆序（变成降序）
+      .limit(limit) // 取前 10 条
+      .toArray()
   },
 
   async getTopic(id: string) {

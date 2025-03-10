@@ -226,10 +226,14 @@ const handleResponseMessageUpdate = (message, topicId, dispatch, getState) => {
 
 // Helper function to sync messages with database
 const syncMessagesWithDB = async (topicId: string, messages: Message[]) => {
-  await db.topics.put({
-    id: topicId,
-    messages
-  })
+  const topic = await db.topics.get(topicId)
+  if (topic) {
+    await db.topics.update(topicId, {
+      messages
+    })
+  } else {
+    await db.topics.add({ id: topic.id, messages })
+  }
 }
 
 // Modified sendMessage thunk
@@ -528,9 +532,6 @@ export const updateMessages = (topic: Topic, messages: Message[]) => async (disp
 
     // 更新 Redux store
     dispatch(loadTopicMessages({ topicId: topic.id, messages }))
-
-    // 使用 syncMessagesWithDB 函数同步到数据库
-    // Redux store 已经在前面更新，无需额外缓存
   } catch (error) {
     dispatch(setError(error instanceof Error ? error.message : 'Failed to update messages'))
   } finally {
@@ -553,11 +554,8 @@ export const selectTopicMessages = createSelector(
 // 获取特定话题的loading状态
 export const selectTopicLoading = (state: RootState, topicId?: string): boolean => {
   const messagesState = state.messages as MessagesState
-  if (!topicId) {
-    // 如果没有提供topicId，则使用当前话题
-    topicId = messagesState.currentTopic?.id || ''
-  }
-  return topicId ? messagesState.loadingByTopic[topicId] || false : false
+  const currentTopicId = topicId || messagesState.currentTopic?.id || ''
+  return currentTopicId ? messagesState.loadingByTopic[currentTopicId] || false : false
 }
 
 export const selectDisplayCount = (state: RootState): number => {

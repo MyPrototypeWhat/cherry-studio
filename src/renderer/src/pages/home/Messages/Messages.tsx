@@ -1,6 +1,7 @@
 import Scrollbar from '@renderer/components/Scrollbar'
 import { LOAD_MORE_COUNT } from '@renderer/config/constant'
 import { useAssistant } from '@renderer/hooks/useAssistant'
+import { useMessageOperations } from '@renderer/hooks/useMessageOperations'
 import { useSettings } from '@renderer/hooks/useSettings'
 import { useShortcut } from '@renderer/hooks/useShortcuts'
 import { getTopic } from '@renderer/hooks/useTopic'
@@ -9,14 +10,7 @@ import { getDefaultTopic } from '@renderer/services/AssistantService'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
 import { getContextCount, getGroupedMessages, getUserMessage } from '@renderer/services/MessagesService'
 import { estimateHistoryTokens } from '@renderer/services/TokenService'
-import { useAppDispatch, useAppSelector } from '@renderer/store'
-import {
-  clearTopicMessages,
-  selectDisplayCount,
-  selectTopicLoading,
-  selectTopicMessages,
-  updateMessages
-} from '@renderer/store/messages'
+import { useAppDispatch } from '@renderer/store'
 import type { Assistant, Message, Topic } from '@renderer/types'
 import { captureScrollableDivAsBlob, captureScrollableDivAsDataURL, runAsyncFunction } from '@renderer/utils'
 import { isEmpty, last } from 'lodash'
@@ -40,20 +34,21 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
   const { t } = useTranslation()
   const { showTopics, topicPosition, showAssistants, enableTopicNaming } = useSettings()
   const { updateTopic } = useAssistant(assistant.id)
-  const messages = useAppSelector((state) => selectTopicMessages(state, topic.id))
-  const loading = useAppSelector((state) => selectTopicLoading(state, topic.id))
-  const displayCount = useAppSelector(selectDisplayCount)
+  // const messages = useAppSelector((state) => selectTopicMessages(state, topic.id))
+  // const loading = useAppSelector((state) => selectTopicLoading(state, topic.id))
+  // const displayCount = useAppSelector(selectDisplayCount)
   const dispatch = useAppDispatch()
   const containerRef = useRef<HTMLDivElement>(null)
   const [displayMessages, setDisplayMessages] = useState<Message[]>([])
   const [hasMore, setHasMore] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const { messages, loading, displayCount, updateMessages, clearTopicMessages } = useMessageOperations(topic)
 
-  const messagesRef = useRef<Message[]>([])
+  // const messagesRef = useRef<Message[]>([])
 
-  useEffect(() => {
-    messagesRef.current = messages
-  }, [messages])
+  // useEffect(() => {
+  //   messagesRef.current = messages
+  // }, [messages])
 
   useEffect(() => {
     const reversedMessages = [...messages].reverse()
@@ -91,17 +86,16 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
   }, [])
 
   const autoRenameTopic = useCallback(async () => {
-    let messages = [...messagesRef.current]
     const _topic = getTopic(assistant, topic.id)
 
     if (isEmpty(messages)) {
       return
     }
 
-    messages = messages.filter((m) => m.status === 'success')
+    const filteredMessages = messages.filter((m) => m.status === 'success')
 
     if (!enableTopicNaming) {
-      const topicName = messages[0]?.content.substring(0, 50)
+      const topicName = filteredMessages[0]?.content.substring(0, 50)
       if (topicName) {
         const data = { ..._topic, name: topicName } as Topic
         setActiveTopic(data)
@@ -110,8 +104,8 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
       return
     }
 
-    if (_topic && _topic.name === t('chat.default.topic.name') && messages.length >= 2) {
-      const summaryText = await fetchMessagesSummary({ messages, assistant })
+    if (_topic && _topic.name === t('chat.default.topic.name') && filteredMessages.length >= 2) {
+      const summaryText = await fetchMessagesSummary({ messages: filteredMessages, assistant })
       if (summaryText) {
         const data = { ..._topic, name: summaryText }
         setActiveTopic(data)
@@ -119,11 +113,9 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assistant, topic.id, enableTopicNaming, t, setActiveTopic])
+  }, [assistant, topic.id, enableTopicNaming, t, setActiveTopic, updateTopic, messages])
 
   useEffect(() => {
-    const messages = messagesRef.current
-
     const unsubscribes = [
       EventEmitter.on(EVENT_NAMES.SEND_MESSAGE, () => {
         scrollToBottom()
@@ -132,12 +124,12 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
         const defaultTopic = getDefaultTopic(assistant.id)
 
         if (data && data.id !== topic.id) {
-          await dispatch(clearTopicMessages(data.id))
+          await clearTopicMessages(data.id)
           updateTopic({ ...data, name: defaultTopic.name } as Topic)
           return
         }
 
-        await dispatch(clearTopicMessages(topic.id))
+        await clearTopicMessages()
         setDisplayMessages([])
         const _topic = getTopic(assistant, topic.id)
         if (_topic) {
@@ -170,17 +162,25 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
 
         const clearMessage = getUserMessage({ assistant, topic, type: 'clear' })
         const newMessages = [...messages, clearMessage]
-        await dispatch(updateMessages(topic, newMessages))
+        await updateMessages(newMessages)
         scrollToBottom()
       })
     ]
 
-    return () => unsubscribes.forEach((unsub) => unsub())
+    return () => {
+      for (const unsub of unsubscribes) {
+        unsub()
+      }
+    }
   }, [assistant, dispatch, scrollToBottom, topic, updateTopic])
 
   useEffect(() => {
     const unsubscribes = [EventEmitter.on(EVENT_NAMES.AI_AUTO_RENAME, autoRenameTopic)]
-    return () => unsubscribes.forEach((unsub) => unsub())
+    return () => {
+      for (const unsub of unsubscribes) {
+        unsub()
+      }
+    }
   }, [autoRenameTopic])
 
   useEffect(() => {

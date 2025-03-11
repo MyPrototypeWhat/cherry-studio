@@ -2,7 +2,6 @@ import db from '@renderer/databases'
 import { deleteMessageFiles } from '@renderer/services/MessagesService'
 import store from '@renderer/store'
 import { prepareTopicMessages } from '@renderer/store/messages'
-import { prepareTopicMessages } from '@renderer/store/messages'
 import { Assistant, Topic } from '@renderer/types'
 import { find } from 'lodash'
 import { useEffect, useState } from 'react'
@@ -16,12 +15,6 @@ export function useActiveTopic(_assistant: Assistant, topic?: Topic) {
   const [activeTopic, setActiveTopic] = useState(topic || _activeTopic || assistant?.topics[0])
 
   _activeTopic = activeTopic
-
-  useEffect(() => {
-    if (activeTopic) {
-      store.dispatch(prepareTopicMessages(activeTopic))
-    }
-  }, [activeTopic])
 
   useEffect(() => {
     if (activeTopic) {

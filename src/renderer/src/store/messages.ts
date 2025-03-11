@@ -28,15 +28,7 @@ const initialState: MessagesState = {
 }
 
 // const MAX_RECENT_TOPICS = 10
-// const MAX_RECENT_TOPICS = 10
 
-// // 只初始化最近的会话消息
-// export const initializeMessagesState = createAsyncThunk('messages/initialize', async () => {
-//   try {
-//     // 获取所有会话的基本信息
-//     const recentTopics = await TopicManager.getTopicLimit(MAX_RECENT_TOPICS)
-//     console.log('recentTopics', recentTopics)
-//     const messagesByTopic: Record<string, Message[]> = {}
 // // 只初始化最近的会话消息
 // export const initializeMessagesState = createAsyncThunk('messages/initialize', async () => {
 //   try {
@@ -109,7 +101,6 @@ const messagesSlice = createSlice({
         // 不是什么好主意,不符合语义
         state.messagesByTopic[topicId].push(...messages)
       } else {
-        // 添加单条消息
         // 添加单条消息
         state.messagesByTopic[topicId].push(messages)
       }
@@ -213,24 +204,21 @@ export const {
   clearStreamMessage
 } = messagesSlice.actions
 
-const handleResponseMessageUpdate = (message, topicId, dispatch, getState) => {
-  dispatch(setStreamMessage({ topicId, message }))
-
+const handleResponseMessageUpdate = (message, topicId, dispatch) => {
   // When message is complete, commit to messages and sync with DB
-  if (message.status !== 'pending') {
-    if (message.status === 'success') {
-      EventEmitter.emit(EVENT_NAMES.AI_AUTO_RENAME)
-    }
-    if (message.status !== 'sending') {
-      dispatch(commitStreamMessage({ topicId, messageId: message.id }))
-      const state = getState()
-      const topicMessages = state.messages.messagesByTopic[topicId]
-      if (topicMessages) {
-        syncMessagesWithDB(topicId, topicMessages)
-      }
-      dispatch(setTopicLoading({ topicId, loading: false }))
-    }
-  }
+  // if (message.status !== 'pending') {
+  //   if (message.status === 'success') {
+  //     EventEmitter.emit(EVENT_NAMES.AI_AUTO_RENAME)
+  //   }
+  //   if (message.status !== 'sending') {
+  //     dispatch(commitStreamMessage({ topicId, messageId: message.id }))
+  //     const state = getState()
+  //     const topicMessages = state.messages.messagesByTopic[topicId]
+  //     if (topicMessages) {
+  //       syncMessagesWithDB(topicId, topicMessages)
+  //     }
+  //   }
+  // }
 }
 
 // Helper function to sync messages with database
@@ -259,16 +247,12 @@ export const sendMessage =
   async (dispatch: AppDispatch, getState: () => RootState) => {
     try {
       dispatch(setTopicLoading({ topicId: topic.id, loading: true }))
-      dispatch(setTopicLoading({ topicId: topic.id, loading: true }))
 
       // Initialize topic messages if not exists
       const initialState = getState()
       if (!initialState.messages.messagesByTopic[topic.id]) {
         dispatch(clearTopicMessages(topic.id))
       }
-      // debugger
-      // !initialState.messages.messagesByTopic[topic.id][userMessage.id] &&
-      //   dispatch(addMessage({ topicId: topic.id, messages: userMessage }))
 
       EventEmitter.emit(EVENT_NAMES.SEND_MESSAGE)
 
@@ -322,11 +306,9 @@ export const sendMessage =
           await syncMessagesWithDB(topic.id, currentTopicMessages)
         }
         // 保证请求有序，防止请求静态，限制并发数量
-        // 保证请求有序，防止请求静态，限制并发数量
-        queue.add(async () => {
+        await queue.add(async () => {
           try {
-            const state = getState()
-            const messages = state.messages.messagesByTopic[topic.id]
+            const messages = getState().messages.messagesByTopic[topic.id]
             if (!messages) {
               dispatch(clearTopicMessages(topic.id))
               return
@@ -344,7 +326,13 @@ export const sendMessage =
             }
 
             // 节流
-            const throttledDispatch = throttle(handleResponseMessageUpdate, 100, { trailing: true }) // 100ms的节流时间应足够平衡用户体验和性能
+            const throttledDispatch = throttle(
+              (topicId, message) => dispatch(setStreamMessage({ topicId, message })),
+              100,
+              { trailing: true }
+            ) // 100ms的节流时间应足够平衡用户体验和性能
+
+            let resultMessage: Message = { ...assistantMessage }
 
             await fetchChatCompletion({
               message: { ...assistantMessage },
@@ -357,12 +345,27 @@ export const sendMessage =
               assistant: assistantWithModel,
               onResponse: async (msg) => {
                 // 允许在回调外维护一个最新的消息状态，每次都更新这个对象，但只通过节流函数分发到Redux
-                const updatedMsg = { ...msg, status: msg.status || 'pending', content: msg.content || '' }
+                const updateMessage = { ...msg, status: msg.status || 'pending', content: msg.content || '' }
+                resultMessage = {
+                  ...assistantMessage,
+                  ...updateMessage
+                }
                 // 创建节流函数，限制Redux更新频率
                 // 使用节流函数更新Redux
-                throttledDispatch({ ...assistantMessage, ...updatedMsg }, topic.id, dispatch, getState)
+                throttledDispatch(topic.id, resultMessage)
               }
             })
+            if (resultMessage?.status === 'success') {
+              EventEmitter.emit(EVENT_NAMES.AI_AUTO_RENAME)
+            }
+            if (resultMessage?.status !== 'sending') {
+              dispatch(commitStreamMessage({ topicId: topic.id, messageId: assistantMessage.id }))
+              const state = getState()
+              const topicMessages = state.messages.messagesByTopic[topic.id]
+              if (topicMessages) {
+                syncMessagesWithDB(topic.id, topicMessages)
+              }
+            }
           } catch (error: any) {
             console.error('Error in chat completion:', error)
             dispatch(
@@ -377,6 +380,9 @@ export const sendMessage =
           }
         })
       }
+      // 等待所有请求完成,设置loading
+      await queue.onIdle()
+      dispatch(setTopicLoading({ topicId: topic.id, loading: false }))
     } catch (error: any) {
       console.error('Error in sendMessage:', error)
       dispatch(setError(error.message))
@@ -431,42 +437,15 @@ export const resendMessage =
 
 // Modified loadTopicMessages thunk
 export const loadTopicMessagesThunk = (topic: Topic) => async (dispatch: AppDispatch) => {
+  // 设置会话的loading状态
+  dispatch(setTopicLoading({ topicId: topic.id, loading: true }))
+  dispatch(setCurrentTopic(topic))
   try {
-    // 设置会话的loading状态
-    dispatch(setTopicLoading({ topicId: topic.id, loading: true }))
-    dispatch(setCurrentTopic(topic))
-    try {
-      // 使用 getTopic 获取会话对象
-      const topicWithDB = await TopicManager.getTopic(topic.id)
-      if (topicWithDB) {
-        // 如果数据库中有会话，加载消息，保存会话
-        dispatch(loadTopicMessages({ topicId: topic.id, messages: topicWithDB.messages }))
-      }
-      // else {
-      //   // 如果找不到，可以将当前会话设为 null
-      //   dispatch(setCurrentTopic(null))
-      // }
-    } catch (error) {
-      console.error('Failed to get complete topic:', error)
-      dispatch(setCurrentTopic(null))
-    }
-    // 设置会话的loading状态
-    dispatch(setTopicLoading({ topicId: topic.id, loading: true }))
-    dispatch(setCurrentTopic(topic))
-    try {
-      // 使用 getTopic 获取会话对象
-      const topicWithDB = await TopicManager.getTopic(topic.id)
-      if (topicWithDB) {
-        // 如果数据库中有会话，加载消息，保存会话
-        dispatch(loadTopicMessages({ topicId: topic.id, messages: topicWithDB.messages }))
-      }
-      // else {
-      //   // 如果找不到，可以将当前会话设为 null
-      //   dispatch(setCurrentTopic(null))
-      // }
-    } catch (error) {
-      console.error('Failed to get complete topic:', error)
-      dispatch(setCurrentTopic(null))
+    // 使用 getTopic 获取会话对象
+    const topicWithDB = await TopicManager.getTopic(topic.id)
+    if (topicWithDB) {
+      // 如果数据库中有会话，加载消息，保存会话
+      dispatch(loadTopicMessages({ topicId: topic.id, messages: topicWithDB.messages }))
     }
   } catch (error) {
     dispatch(setError(error instanceof Error ? error.message : 'Failed to load messages'))
@@ -475,7 +454,6 @@ export const loadTopicMessagesThunk = (topic: Topic) => async (dispatch: AppDisp
     dispatch(setTopicLoading({ topicId: topic.id, loading: false }))
   }
 }
-
 // Modified clearMessages thunk
 export const clearTopicMessagesThunk = (topic: Topic) => async (dispatch: AppDispatch) => {
   try {
@@ -505,9 +483,6 @@ export const clearTopicMessagesThunk = (topic: Topic) => async (dispatch: AppDis
 // 修改的 updateMessages thunk，同时更新缓存
 export const updateMessages = (topic: Topic, messages: Message[]) => async (dispatch: AppDispatch) => {
   try {
-    // 设置会话的loading状态
-    // dispatch(setTopicLoading({ topicId: topic.id, loading: true }))
-
     // 更新数据库
     await db.topics.update(topic.id, { messages })
 

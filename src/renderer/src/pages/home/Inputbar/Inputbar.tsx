@@ -134,7 +134,6 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
 
   const sendMessage = useCallback(async () => {
     if (inputEmpty || loading) {
-    if (inputEmpty || loading) {
       return
     }
 
@@ -172,7 +171,7 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
     } catch (error) {
       console.error('Failed to send message:', error)
     }
-  }, [inputEmpty, files, dispatch, text, assistant, selectedKnowledgeBases, mentionModels, enabledMCPs])
+  }, [inputEmpty, files, dispatch, text, assistant, topic, selectedKnowledgeBases, mentionModels, enabledMCPs, loading])
 
   const translate = async () => {
     if (isTranslating) {

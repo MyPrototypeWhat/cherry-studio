@@ -46,27 +46,4 @@ db.version(5)
   })
   .upgrade((tx) => upgradeToV5(tx))
 
-db.version(6)
-  .stores({
-    files: 'id, name, origin_name, path, size, ext, type, created_at, count',
-    topics: '&id, messages, createdAt, updatedAt',
-    settings: '&id, value',
-    knowledge_notes: '&id, baseId, type, content, created_at, updated_at',
-    translate_history: '&id, sourceText, targetText, sourceLanguage, targetLanguage, createdAt'
-  })
-  .upgrade((tx) => upgradeToV6(tx))
-
-// Add hooks for automatic timestamp handling
-db.topics.hook('creating', (_, obj: any) => {
-  const now = new Date().toISOString()
-  obj.createdAt = now
-  obj.updatedAt = now
-})
-
-db.topics.hook('updating', (modifications: any) => {
-  if (typeof modifications === 'object') {
-    modifications.updatedAt = new Date().toISOString()
-  }
-})
-
 export default db

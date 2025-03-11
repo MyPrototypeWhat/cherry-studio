@@ -3,10 +3,9 @@ import db from '@renderer/databases'
 import { TopicManager } from '@renderer/hooks/useTopic'
 import { fetchChatCompletion } from '@renderer/services/ApiService'
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
-import { getAssistantMessage, getUserMessage, resetAssistantMessage } from '@renderer/services/MessagesService'
-import { estimateMessageUsage } from '@renderer/services/TokenService'
+import { getAssistantMessage, resetAssistantMessage } from '@renderer/services/MessagesService'
 import type { AppDispatch, RootState } from '@renderer/store'
-import type { Assistant, FileType, MCPServer, Message, Model, Topic } from '@renderer/types'
+import type { Assistant, Message, Topic } from '@renderer/types'
 import { clearTopicQueue, getTopicQueue, waitForTopicQueue } from '@renderer/utils/queue'
 import { throttle } from 'lodash'
 
@@ -240,16 +239,12 @@ const syncMessagesWithDB = async (topicId: string, messages: Message[]) => {
 // Modified sendMessage thunk
 export const sendMessage =
   (
-    content: string,
+    userMessage: Message,
     assistant: Assistant,
     topic: Topic,
     options?: {
-      files?: FileType[]
-      knowledgeBaseIds?: string[]
-      mentionModels?: Model[]
-      resendUserMessage?: Message
       resendAssistantMessage?: Message
-      enabledMCPs?: MCPServer[]
+      isMentionModel?: boolean
     }
   ) =>
   async (dispatch: AppDispatch, getState: () => RootState) => {
@@ -261,42 +256,15 @@ export const sendMessage =
       if (!initialState.messages.messagesByTopic[topic.id]) {
         dispatch(clearTopicMessages(topic.id))
       }
-
-      // 判断是否重发消息
-      const isResend = !!options?.resendUserMessage
-
-      // 使用用户消息
-      let userMessage: Message
-      if (isResend) {
-        userMessage = options.resendUserMessage
-      } else {
-        // 创建新的用户消息
-        userMessage = getUserMessage({ assistant, topic, type: 'text', content })
-        if (options?.files) {
-          userMessage.files = options.files
-        }
-
-        if (options?.knowledgeBaseIds) {
-          userMessage.knowledgeBaseIds = options.knowledgeBaseIds
-        }
-
-        if (options?.mentionModels) {
-          userMessage.mentions = options.mentionModels
-        }
-
-        if (options?.enabledMCPs) {
-          userMessage.enabledMCPs = options.enabledMCPs
-        }
-        userMessage.usage = await estimateMessageUsage(userMessage)
-      }
+      // debugger
+      // !initialState.messages.messagesByTopic[topic.id][userMessage.id] &&
+      //   dispatch(addMessage({ topicId: topic.id, messages: userMessage }))
 
       EventEmitter.emit(EVENT_NAMES.SEND_MESSAGE)
 
       // 处理助手消息
-      // let assistantMessage: Message
       let assistantMessages: Message[] = []
-      // 使用助手消息
-      if (isResend && options.resendAssistantMessage) {
+      if (options?.resendAssistantMessage) {
         // 直接使用传入的助手消息，进行重置
         const messageToReset = options.resendAssistantMessage
         const { model, id } = messageToReset
@@ -307,9 +275,9 @@ export const sendMessage =
         assistantMessages.push(resetMessage)
       } else {
         // 不是重发情况
-        // 为每个被 mention 的模型创建一个助手消息
-        if (options?.mentionModels?.length) {
-          assistantMessages = options.mentionModels.map((m) => {
+        if (userMessage.mentions?.length) {
+          // 为每个被 mention 的模型创建一个助手消息
+          assistantMessages = userMessage.mentions.map((m) => {
             const assistantMessage = getAssistantMessage({ assistant: { ...assistant, model: m }, topic })
             assistantMessage.model = m
             assistantMessage.askId = userMessage.id
@@ -323,20 +291,16 @@ export const sendMessage =
           assistantMessage.status = 'sending'
           assistantMessages.push(assistantMessage)
         }
-      }
-
-      // 如果不是重发
-      !options?.resendAssistantMessage &&
         dispatch(
           addMessage({
             topicId: topic.id,
-            messages: !isResend ? [userMessage, ...assistantMessages] : assistantMessages
+            messages: !options?.isMentionModel ? [userMessage, ...assistantMessages] : assistantMessages
           })
         )
+      }
 
       const queue = getTopicQueue(topic.id)
       for (const assistantMessage of assistantMessages) {
-        // console.log('assistantMessage', assistantMessage)
         // Set as stream message instead of adding to messages
         dispatch(setStreamMessage({ topicId: topic.id, message: assistantMessage }))
 
@@ -425,8 +389,7 @@ export const resendMessage =
         const assistantMessage = topicMessages.find((m) => m.role === 'assistant' && m.askId === message.id)
 
         return dispatch(
-          sendMessage(message.content, assistant, topic, {
-            resendUserMessage: message,
+          sendMessage(message, assistant, topic, {
             resendAssistantMessage: assistantMessage
           })
         )
@@ -434,32 +397,24 @@ export const resendMessage =
 
       // 如果是助手消息，找到对应的用户消息
       const userMessage = topicMessages.find((m) => m.id === message.askId && m.role === 'user')
-      console.log('topicMessages,topicMessages', topicMessages)
       if (!userMessage) {
         console.error('Cannot find original user message to resend')
         return dispatch(setError('Cannot find original user message to resend'))
       }
 
       if (isMentionModel) {
-        // @
-        return dispatch(
-          sendMessage(userMessage.content, assistant, topic, {
-            resendUserMessage: userMessage
-          })
-        )
+        // @,追加助手消息
+        return dispatch(sendMessage(userMessage, assistant, topic, { isMentionModel }))
       }
 
       dispatch(
-        sendMessage(userMessage.content, assistant, topic, {
-          resendUserMessage: userMessage,
+        sendMessage(userMessage, assistant, topic, {
           resendAssistantMessage: message
         })
       )
     } catch (error: any) {
       console.error('Error in resendMessage:', error)
       dispatch(setError(error.message))
-    } finally {
-      dispatch(setTopicLoading({ topicId: topic.id, loading: false }))
     }
   }
 
@@ -522,7 +477,7 @@ export const clearTopicMessagesThunk = (topic: Topic) => async (dispatch: AppDis
 export const updateMessages = (topic: Topic, messages: Message[]) => async (dispatch: AppDispatch) => {
   try {
     // 设置会话的loading状态
-    dispatch(setTopicLoading({ topicId: topic.id, loading: true }))
+    // dispatch(setTopicLoading({ topicId: topic.id, loading: true }))
 
     // 更新数据库
     await db.topics.update(topic.id, { messages })
@@ -531,9 +486,6 @@ export const updateMessages = (topic: Topic, messages: Message[]) => async (disp
     dispatch(loadTopicMessages({ topicId: topic.id, messages }))
   } catch (error) {
     dispatch(setError(error instanceof Error ? error.message : 'Failed to update messages'))
-  } finally {
-    // 清除会话的loading状态
-    dispatch(setTopicLoading({ topicId: topic.id, loading: false }))
   }
 }
 

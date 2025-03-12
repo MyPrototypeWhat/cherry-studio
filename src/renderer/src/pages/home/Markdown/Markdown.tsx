@@ -6,8 +6,9 @@ import MarkdownShadowDOMRenderer from '@renderer/components/MarkdownShadowDOMRen
 import { useSettings } from '@renderer/hooks/useSettings'
 import type { Message } from '@renderer/types'
 import { escapeBrackets, removeSvgEmptyLines, withGeminiGrounding } from '@renderer/utils/formats'
+import { motion } from 'framer-motion'
 import { isEmpty } from 'lodash'
-import { type FC, useCallback, useMemo } from 'react'
+import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
@@ -64,19 +65,37 @@ const Markdown: FC<Props> = ({ message }) => {
     return <p style={{ marginBottom: 5, whiteSpace: 'pre-wrap' }}>{messageContent}</p>
   }
 
+  const [displayText, setDisplayText] = useState('') // 当前显示的文本
+
+  useEffect(() => {
+    let i = 0
+    const interval = setInterval(() => {
+      if (i < messageContent.length) {
+        setDisplayText((prev) => prev + messageContent[i]) // 逐字符追加
+        i++
+      } else {
+        clearInterval(interval)
+      }
+    }, 30) // 控制打字速度
+
+    return () => clearInterval(interval)
+  }, [messageContent])
+
   return (
-    <ReactMarkdown
-      rehypePlugins={rehypePlugins}
-      remarkPlugins={[remarkMath, remarkGfm]}
-      className="markdown"
-      components={components()}
-      remarkRehypeOptions={{
-        footnoteLabel: t('common.footnotes'),
-        footnoteLabelTagName: 'h4',
-        footnoteBackContent: ' '
-      }}>
-      {messageContent}
-    </ReactMarkdown>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+      <ReactMarkdown
+        rehypePlugins={rehypePlugins}
+        remarkPlugins={[remarkMath, remarkGfm]}
+        className="markdown"
+        components={components()}
+        remarkRehypeOptions={{
+          footnoteLabel: t('common.footnotes'),
+          footnoteLabelTagName: 'h4',
+          footnoteBackContent: ' '
+        }}>
+        {displayText}
+      </ReactMarkdown>
+    </motion.div>
   )
 }
 

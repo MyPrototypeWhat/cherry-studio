@@ -6,9 +6,8 @@ import MarkdownShadowDOMRenderer from '@renderer/components/MarkdownShadowDOMRen
 import { useSettings } from '@renderer/hooks/useSettings'
 import type { Message } from '@renderer/types'
 import { escapeBrackets, removeSvgEmptyLines, withGeminiGrounding } from '@renderer/utils/formats'
-import { motion } from 'framer-motion'
 import { isEmpty } from 'lodash'
-import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
+import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
@@ -32,8 +31,16 @@ interface Props {
 const Markdown: FC<Props> = ({ message }) => {
   const { t } = useTranslation()
   const { renderInputMessageAsMarkdown, mathEngine } = useSettings()
+  const [typingComplete, setTypingComplete] = useState(false)
 
+  // const indexRef = useRef(-1)
   const rehypeMath = useMemo(() => (mathEngine === 'KaTeX' ? rehypeKatex : rehypeMathjax), [mathEngine])
+
+  // const updateText = (role: string) => {
+  //   if (role === 'user') return (messageContent: string) => messageContent
+  //   let text = ''
+  //   return function
+  // }
 
   const messageContent = useMemo(() => {
     const empty = isEmpty(message.content)
@@ -41,6 +48,59 @@ const Markdown: FC<Props> = ({ message }) => {
     const content = empty && paused ? t('message.chat.completion.paused') : withGeminiGrounding(message)
     return removeSvgEmptyLines(escapeBrackets(content))
   }, [message, t])
+
+  const [displayText, setDisplayText] = useState(message.role === 'assistant' ? messageContent : '')
+  const typeWriterIndex = useRef(0)
+  const messageStatus = useRef(message.status)
+  const rafIdRef = useRef<number | null>(null)
+
+  const raf = useCallback(() => {
+    if (typeWriterIndex.current < messageContent.length) {
+      setDisplayText(messageContent.slice(0, typeWriterIndex.current + 1))
+      typeWriterIndex.current += 1
+      rafIdRef.current = requestAnimationFrame(raf)
+    }
+  }, [messageContent])
+
+  useEffect(() => {
+    // 只对助手消息进行处理
+    if (message.role !== 'assistant') {
+      setDisplayText(messageContent)
+      return
+    }
+
+    // 检查是否需要继续或开始动画
+    const shouldAnimate =
+      // 状态为 pending
+      message.status === 'pending' ||
+      // 或者状态从 pending 变为其他，但动画尚未完成
+      (messageStatus.current === 'pending' &&
+        message.status !== 'pending' &&
+        typeWriterIndex.current < messageContent.length)
+
+    // 更新状态引用
+    messageStatus.current = message.status
+
+    // 如果需要动画
+    if (shouldAnimate) {
+      // 如果是新消息或者内容变化，重置索引
+      if (typeWriterIndex.current === 0 || typeWriterIndex.current >= messageContent.length) {
+        typeWriterIndex.current = 0
+      }
+      // 开始或继续动画
+      raf()
+    } else {
+      // 显示完整内容
+      setDisplayText(messageContent)
+    }
+
+    // 清理函数
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current)
+      }
+    }
+  }, [messageContent, message.role, message.status, raf])
 
   const rehypePlugins = useMemo(() => {
     const hasElements = ALLOWED_ELEMENTS.test(messageContent)
@@ -65,37 +125,21 @@ const Markdown: FC<Props> = ({ message }) => {
     return <p style={{ marginBottom: 5, whiteSpace: 'pre-wrap' }}>{messageContent}</p>
   }
 
-  const [displayText, setDisplayText] = useState('') // 当前显示的文本
-
-  useEffect(() => {
-    let i = 0
-    const interval = setInterval(() => {
-      if (i < messageContent.length) {
-        setDisplayText((prev) => prev + messageContent[i]) // 逐字符追加
-        i++
-      } else {
-        clearInterval(interval)
-      }
-    }, 30) // 控制打字速度
-
-    return () => clearInterval(interval)
-  }, [messageContent])
-
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
-      <ReactMarkdown
-        rehypePlugins={rehypePlugins}
-        remarkPlugins={[remarkMath, remarkGfm]}
-        className="markdown"
-        components={components()}
-        remarkRehypeOptions={{
-          footnoteLabel: t('common.footnotes'),
-          footnoteLabelTagName: 'h4',
-          footnoteBackContent: ' '
-        }}>
-        {displayText}
-      </ReactMarkdown>
-    </motion.div>
+    // <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <ReactMarkdown
+      rehypePlugins={rehypePlugins}
+      remarkPlugins={[remarkMath, remarkGfm]}
+      className="markdown"
+      components={components()}
+      remarkRehypeOptions={{
+        footnoteLabel: t('common.footnotes'),
+        footnoteLabelTagName: 'h4',
+        footnoteBackContent: ' '
+      }}>
+      {displayText}
+    </ReactMarkdown>
+    // </motion.div>
   )
 }
 

@@ -158,7 +158,6 @@ export default abstract class BaseProvider {
     const abortFn = () => abortController.abort()
 
     if (messageId) {
-      console.log('messageId', messageId)
       addAbortController(messageId, abortFn)
     }
 

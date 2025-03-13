@@ -10,7 +10,6 @@ import { isReasoningModel } from '@renderer/config/models'
 import { getStoreSetting } from '@renderer/hooks/useSettings'
 import i18n from '@renderer/i18n'
 import { getAssistantSettings, getDefaultModel, getTopNamingModel } from '@renderer/services/AssistantService'
-import { EVENT_NAMES } from '@renderer/services/EventService'
 import {
   filterContextMessages,
   filterEmptyMessages,
@@ -212,13 +211,13 @@ export default class AnthropicProvider extends BaseProvider {
       return new Promise<void>((resolve, reject) => {
         const toolCalls: ToolUseBlock[] = []
         let hasThinkingContent = false
-        const stream = this.sdk.messages
+        this.sdk.messages
           .stream({ ...body, stream: true }, { signal })
           .on('text', (text) => {
-            if (window.keyv.get(EVENT_NAMES.CHAT_COMPLETION_PAUSED)) {
-              stream.controller.abort()
-              return resolve()
-            }
+            // if (window.keyv.get(EVENT_NAMES.CHAT_COMPLETION_PAUSED)) {
+            //   stream.controller.abort()
+            //   return resolve()
+            // }
 
             if (time_first_token_millsec == 0) {
               time_first_token_millsec = new Date().getTime() - start_time_millsec
@@ -327,10 +326,11 @@ export default class AnthropicProvider extends BaseProvider {
     }
 
     await processStream(body)
-      .catch((error) => {
-        // 不加这个错误抛不出来
-        throw error
-      })
+      // .catch((error) => {
+      //   console.log('err', error)
+      //   // 不加这个错误抛不出来
+      //   throw error
+      // })
       .finally(cleanup)
   }
 

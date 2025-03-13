@@ -7,15 +7,14 @@ export const addAbortController = (id: string, abortFn: () => void) => {
 export const removeAbortController = (id: string, abortFn: () => void) => {
   const callbackArr = abortMap.get(id)
   if (abortFn) {
-    console.log('callbackArr.indexOf(abortFn)', callbackArr)
     callbackArr?.splice(callbackArr?.indexOf(abortFn), 1)
   } else abortMap.delete(id)
 }
 
 export const abortCompletion = (id: string) => {
-  const abortFn = abortMap.get(id)
-  if (abortFn) {
-    for (const fn of abortFn) {
+  const abortFns = abortMap.get(id)
+  if (abortFns?.length) {
+    for (const fn of abortFns) {
       fn()
       removeAbortController(id, fn)
     }

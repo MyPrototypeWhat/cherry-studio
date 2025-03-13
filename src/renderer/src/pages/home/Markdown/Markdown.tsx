@@ -31,16 +31,7 @@ interface Props {
 const Markdown: FC<Props> = ({ message }) => {
   const { t } = useTranslation()
   const { renderInputMessageAsMarkdown, mathEngine } = useSettings()
-  const [typingComplete, setTypingComplete] = useState(false)
-
-  // const indexRef = useRef(-1)
   const rehypeMath = useMemo(() => (mathEngine === 'KaTeX' ? rehypeKatex : rehypeMathjax), [mathEngine])
-
-  // const updateText = (role: string) => {
-  //   if (role === 'user') return (messageContent: string) => messageContent
-  //   let text = ''
-  //   return function
-  // }
 
   const messageContent = useMemo(() => {
     const empty = isEmpty(message.content)
@@ -96,9 +87,7 @@ const Markdown: FC<Props> = ({ message }) => {
 
     // 清理函数
     return () => {
-      if (rafIdRef.current) {
-        cancelAnimationFrame(rafIdRef.current)
-      }
+      rafIdRef.current && cancelAnimationFrame(rafIdRef.current)
     }
   }, [messageContent, message.role, message.status, raf])
 
@@ -126,7 +115,6 @@ const Markdown: FC<Props> = ({ message }) => {
   }
 
   return (
-    // <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
     <ReactMarkdown
       rehypePlugins={rehypePlugins}
       remarkPlugins={[remarkMath, remarkGfm]}
@@ -139,7 +127,6 @@ const Markdown: FC<Props> = ({ message }) => {
       }}>
       {displayText}
     </ReactMarkdown>
-    // </motion.div>
   )
 }
 

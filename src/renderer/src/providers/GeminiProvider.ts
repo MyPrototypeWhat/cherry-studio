@@ -272,7 +272,7 @@ export default class GeminiProvider extends BaseProvider {
             })
             const newChat = geminiModel.startChat({ history })
             const newStream = await newChat.sendMessageStream(fcRespParts, { signal })
-            await processStream(newStream).finally(cleanup)
+            await processStream(newStream)
           }
         }
 

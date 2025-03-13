@@ -155,21 +155,25 @@ export default abstract class BaseProvider {
 
   protected createAbortController(messageId?: string) {
     const abortController = new AbortController()
+    const abortFn = () => abortController.abort()
 
     if (messageId) {
-      addAbortController(messageId, () => abortController.abort())
+      console.log('messageId', messageId)
+      addAbortController(messageId, abortFn)
     }
 
     const cleanup = () => {
       if (messageId) {
-        removeAbortController(messageId)
+        removeAbortController(messageId, abortFn)
       }
     }
 
-    abortController.signal.addEventListener('abort', () => {
-      // 兼容
-      cleanup()
-    })
+    // abortController.signal.addEventListener('abort', () => {
+    //   // 兼容
+    //   cleanup()
+    //   abortController.signal.removeEventListener('abort', cleanup)
+    //   // abortController.signal=null
+    // })
 
     return {
       abortController,

@@ -39,6 +39,7 @@ export async function fetchChatCompletion({
   // onResponse({ ...message })
 
   // addAbortController(message.askId ?? message.id)
+  console.log('filterUsefulMessages(messages)', messages.length)
 
   try {
     let _messages: Message[] = []
@@ -70,7 +71,6 @@ export async function fetchChatCompletion({
     }
 
     const allMCPTools = await window.api.mcp.listTools()
-
     await AI.completions({
       messages: filterUsefulMessages(messages),
       assistant,

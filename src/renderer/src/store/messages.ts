@@ -233,7 +233,7 @@ export const sendMessage =
     assistant: Assistant,
     topic: Topic,
     options?: {
-      resendAssistantMessage?: Message
+      resendAssistantMessage?: Message | Message[]
       isMentionModel?: boolean
     }
   ) =>
@@ -251,19 +251,30 @@ export const sendMessage =
 
       // 处理助手消息
       let assistantMessages: Message[] = []
+      console.log('options?.resendAssistantMessage', options?.resendAssistantMessage)
       if (options?.resendAssistantMessage) {
         // 直接使用传入的助手消息，进行重置
         const messageToReset = options.resendAssistantMessage
-        const { model, id } = messageToReset
-        const resetMessage = resetAssistantMessage(messageToReset, model)
-        // 更新状态
-        dispatch(updateMessage({ topicId: topic.id, messageId: id, updates: resetMessage }))
-        // 使用重置后的消息
-        assistantMessages.push(resetMessage)
+        if (Array.isArray(messageToReset)) {
+          assistantMessages = messageToReset.map((m) => {
+            const { model, id } = m
+            const resetMessage = resetAssistantMessage(m, model)
+            // 更新状态
+            dispatch(updateMessage({ topicId: topic.id, messageId: id, updates: resetMessage }))
+            // 使用重置后的消息
+            return resetMessage
+          })
+        } else {
+          const { model, id } = messageToReset
+          const resetMessage = resetAssistantMessage(messageToReset, model)
+          // 更新状态
+          dispatch(updateMessage({ topicId: topic.id, messageId: id, updates: resetMessage }))
+          // 使用重置后的消息
+          assistantMessages.push(resetMessage)
+        }
       } else {
-        // 不是重发情况
+        // 为每个被 mention 的模型创建一个助手消息
         if (userMessage.mentions?.length) {
-          // 为每个被 mention 的模型创建一个助手消息
           assistantMessages = userMessage.mentions.map((m) => {
             const assistantMessage = getAssistantMessage({ assistant: { ...assistant, model: m }, topic })
             assistantMessage.model = m
@@ -285,7 +296,7 @@ export const sendMessage =
           })
         )
       }
-
+      console.log('assistantMessages', assistantMessages)
       const queue = getTopicQueue(topic.id)
       for (const assistantMessage of assistantMessages) {
         // Set as stream message instead of adding to messages
@@ -298,6 +309,7 @@ export const sendMessage =
         if (currentTopicMessages) {
           await syncMessagesWithDB(topic.id, currentTopicMessages)
         }
+        console.log('currentTopicMessages', currentTopicMessages)
         // 保证请求有序，防止请求静态，限制并发数量
         await queue.add(async () => {
           try {
@@ -322,6 +334,8 @@ export const sendMessage =
             const throttledDispatch = throttle(handleResponseMessageUpdate, 100, { trailing: true }) // 100ms的节流时间应足够平衡用户体验和性能
 
             const messageIndex = messages.findIndex((m) => m.id === assistantMessage.id)
+            console.log('messageIndex', messageIndex)
+            console.log('add', messages)
             await fetchChatCompletion({
               message: { ...assistantMessage },
               messages: messages
@@ -381,8 +395,7 @@ export const resendMessage =
       // 如果是用户消息，直接重发
       if (message.role === 'user') {
         // 查找此用户消息对应的助手消息
-        const assistantMessage = topicMessages.find((m) => m.role === 'assistant' && m.askId === message.id)
-
+        const assistantMessage = topicMessages.filter((m) => m.role === 'assistant' && m.askId === message.id)
         return dispatch(
           sendMessage(message, assistant, topic, {
             resendAssistantMessage: assistantMessage
@@ -402,6 +415,7 @@ export const resendMessage =
         return dispatch(sendMessage(userMessage, assistant, topic, { isMentionModel }))
       }
 
+      console.log('assistantMessage', message)
       dispatch(
         sendMessage(userMessage, assistant, topic, {
           resendAssistantMessage: message

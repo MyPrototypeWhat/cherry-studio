@@ -252,7 +252,6 @@ export default class OpenAIProvider extends BaseProvider {
     }
 
     const userMessages: ChatCompletionMessageParam[] = []
-
     const _messages = filterUserRoleStartMessages(
       filterEmptyMessages(filterContextMessages(takeRight(messages, contextCount + 1)))
     )
@@ -309,6 +308,7 @@ export default class OpenAIProvider extends BaseProvider {
     let time_first_content_millsec = 0
     const start_time_millsec = new Date().getTime()
     const lastUserMessage = _messages.findLast((m) => m.role === 'user')
+    console.log('lastUserMessage?.id', lastUserMessage, lastUserMessage?.id)
     const { abortController, cleanup } = this.createAbortController(lastUserMessage?.id)
     const { signal } = abortController
 
@@ -321,6 +321,7 @@ export default class OpenAIProvider extends BaseProvider {
 
     const toolResponses: MCPToolResponse[] = []
 
+    console.log('reqMessages,reqMessages', reqMessages)
     const processStream = async (stream: any) => {
       if (!isSupportStreamOutput()) {
         const time_completion_millsec = new Date().getTime() - start_time_millsec
@@ -398,7 +399,6 @@ export default class OpenAIProvider extends BaseProvider {
             const toolCallResponse = await callMCPTool(mcpTool)
 
             console.log('[OpenAIProvider] toolCallResponse', toolCallResponse)
-
             reqMessages.push({
               role: 'tool',
               content: isString(toolCallResponse.content)

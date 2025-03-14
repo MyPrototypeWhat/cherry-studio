@@ -170,15 +170,21 @@ export default abstract class BaseProvider {
 
     const cleanup = () => {
       if (messageId) {
-        signalResolve?.(undefined)
+        signalPromise.resolve?.(undefined)
         removeAbortController(messageId, abortFn)
       }
     }
-    let signalResolve: (value: unknown) => void
-    let signalPromise: Promise<unknown>
+    const signalPromise: {
+      resolve: (value: unknown) => void
+      promise: Promise<unknown>
+    } = {
+      resolve: () => {},
+      promise: Promise.resolve()
+    }
+
     if (isAddEventListener) {
-      signalPromise = new Promise((resolve, reject) => {
-        signalResolve = resolve
+      signalPromise.promise = new Promise((resolve, reject) => {
+        signalPromise.resolve = resolve
         if (abortController.signal.aborted) {
           reject(new Error('Request was aborted.'))
         }

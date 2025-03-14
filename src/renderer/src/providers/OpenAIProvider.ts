@@ -566,10 +566,6 @@ export default class OpenAIProvider extends BaseProvider {
           mcpToolResponse: toolResponses
         })
       }
-      // 捕获signal的错误
-      await signalPromise?.catch((error) => {
-        throw error
-      })
     }
 
     const stream = await this.sdk.chat.completions
@@ -595,6 +591,10 @@ export default class OpenAIProvider extends BaseProvider {
       )
 
     await processStream(stream, 0).finally(cleanup)
+    // 捕获signal的错误
+    await signalPromise?.promise?.catch((error) => {
+      throw error
+    })
   }
 
   /**

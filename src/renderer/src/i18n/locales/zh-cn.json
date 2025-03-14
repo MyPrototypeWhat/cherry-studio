@@ -608,7 +608,8 @@
       "xirang": "天翼云息壤",
       "yi": "零一万物",
       "zhinao": "360智脑",
-      "zhipu": "智谱AI"
+      "zhipu": "智谱AI",
+      "gpustack": "GPUStack"
     },
     "restore": {
       "confirm": "确定要恢复数据吗？",
@@ -623,6 +624,12 @@
         "title": "恢复进度"
       },
       "title": "数据恢复"
+    },
+    "gpustack": {
+      "keep_alive_time.description": "模型在内存中保持的时间（默认：5分钟）",
+      "keep_alive_time.placeholder": "分钟",
+      "keep_alive_time.title": "保持活跃时间",
+      "title": "GPUStack"
     },
     "settings": {
       "about": "关于我们",
@@ -789,13 +796,14 @@
         "addError": "添加服务器失败",
         "args": "参数",
         "argsTooltip": "每个参数占一行",
+        "baseUrlTooltip": "远程 URL 地址",
         "command": "命令",
         "commandRequired": "请输入命令",
         "config_description": "配置模型上下文协议服务器",
         "confirmDelete": "删除服务器",
         "confirmDeleteMessage": "您确定要删除该服务器吗？",
         "deleteError": "删除服务器失败",
-        "deleteSuccess": "服务器删除成功",        
+        "deleteSuccess": "服务器删除成功",
         "description": "描述",
         "duplicateName": "已存在同名服务器",
         "editServer": "编辑服务器",

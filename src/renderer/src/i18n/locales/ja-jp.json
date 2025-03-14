@@ -561,6 +561,12 @@
       },
       "title": "PlantUML 図表"
     },
+    "gpustack": {
+      "keep_alive_time.description": "モデルがメモリに保持される時間（デフォルト：5分）",
+      "keep_alive_time.placeholder": "分",
+      "keep_alive_time.title": "保持時間",
+      "title": "GPUStack"
+    },
     "prompts": {
       "explanation": "この概念を説明してください",
       "summarize": "このテキストを要約してください",
@@ -608,7 +614,8 @@
       "xirang": "天翼クラウド 息壤",
       "yi": "零一万物",
       "zhinao": "360智脳",
-      "zhipu": "智譜AI"
+      "zhipu": "智譜AI",
+      "gpustack": "GPUStack"
     },
     "restore": {
       "confirm": "データを復元しますか？",
@@ -789,13 +796,14 @@
         "addError": "サーバーの追加に失敗しました",
         "args": "引数",
         "argsTooltip": "1行に1つの引数を入力してください",
+        "baseUrlTooltip": "リモートURLアドレス",
         "command": "コマンド",
         "commandRequired": "コマンドを入力してください",
         "config_description": "モデルコンテキストプロトコルサーバーの設定",
         "confirmDelete": "サーバーを削除",
         "confirmDeleteMessage": "本当にこのサーバーを削除しますか？",
         "deleteError": "サーバーの削除に失敗しました",
-        "deleteSuccess": "サーバーが正常に削除されました",        
+        "deleteSuccess": "サーバーが正常に削除されました",
         "description": "説明",
         "duplicateName": "同じ名前のサーバーが既に存在します",
         "editServer": "サーバーを編集",
@@ -810,7 +818,7 @@
         "type": "タイプ",
         "updateSuccess": "サーバーが正常に更新されました",
         "updateError": "サーバーの更新に失敗しました",
-          "url": "URL",
+        "url": "URL",
         "toggleError": "切り替えに失敗しました"
       },
       "messages.divider": "メッセージ間に区切り線を表示",

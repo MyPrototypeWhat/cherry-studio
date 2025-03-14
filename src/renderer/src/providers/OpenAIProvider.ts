@@ -308,8 +308,7 @@ export default class OpenAIProvider extends BaseProvider {
     let time_first_content_millsec = 0
     const start_time_millsec = new Date().getTime()
     const lastUserMessage = _messages.findLast((m) => m.role === 'user')
-    console.log('lastUserMessage?.id', lastUserMessage, lastUserMessage?.id)
-    const { abortController, cleanup } = this.createAbortController(lastUserMessage?.id)
+    const { abortController, cleanup, signalPromise } = this.createAbortController(lastUserMessage?.id, true)
     const { signal } = abortController
 
     mcpTools = filterMCPTools(mcpTools, lastUserMessage?.enabledMCPs)
@@ -320,8 +319,6 @@ export default class OpenAIProvider extends BaseProvider {
     ) as ChatCompletionMessageParam[]
 
     const toolResponses: MCPToolResponse[] = []
-
-    console.log('reqMessages,reqMessages', reqMessages)
     const processStream = async (stream: any) => {
       if (!isSupportStreamOutput()) {
         const time_completion_millsec = new Date().getTime() - start_time_millsec
@@ -448,6 +445,10 @@ export default class OpenAIProvider extends BaseProvider {
           mcpToolResponse: toolResponses
         })
       }
+      // 捕获signal的错误
+      await signalPromise?.catch((error) => {
+        throw error
+      })
     }
 
     const stream = await this.sdk.chat.completions

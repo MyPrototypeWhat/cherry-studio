@@ -14,7 +14,7 @@ export const removeAbortController = (id: string, abortFn: () => void) => {
 export const abortCompletion = (id: string) => {
   const abortFns = abortMap.get(id)
   if (abortFns?.length) {
-    for (const fn of abortFns) {
+    for (const fn of [...abortFns]) {
       fn()
       removeAbortController(id, fn)
     }

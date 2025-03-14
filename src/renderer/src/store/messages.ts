@@ -336,10 +336,13 @@ export const sendMessage =
           })
         )
       }
+      for (const assistantMessage of assistantMessages) {
+        // for of会收到await 影响,在暂停的时候会因为异步的原因有概率拿不到数据
+        dispatch(setStreamMessage({ topicId: topic.id, message: assistantMessage }))
+      }
       const queue = getTopicQueue(topic.id)
       for (const assistantMessage of assistantMessages) {
         // Set as stream message instead of adding to messages
-        dispatch(setStreamMessage({ topicId: topic.id, message: assistantMessage }))
 
         // Sync user message with database
         const state = getState()
@@ -391,7 +394,6 @@ export const sendMessage =
               // 没有找到消息索引的情况，过滤所有消息
               return messages.filter((m) => !m.status?.includes('ing'))
             }
-            console.log('handleMessages', handleMessages())
             await fetchChatCompletion({
               message: { ...assistantMessage },
               messages: handleMessages(),
@@ -412,7 +414,6 @@ export const sendMessage =
                 )
               }
             })
-            console.log('fetchChatCompletion_完成')
           } catch (error: any) {
             console.error('Error in chat completion:', error)
             dispatch(
@@ -434,7 +435,6 @@ export const sendMessage =
     } finally {
       // 等待所有请求完成,设置loading
       await waitForTopicQueue(topic.id)
-      console.log('结束')
       dispatch(setTopicLoading({ topicId: topic.id, loading: false }))
     }
   }

@@ -322,16 +322,13 @@ export default class AnthropicProvider extends BaseProvider {
             resolve()
           })
           .on('error', (error) => reject(error))
+          .on('abort', () => {
+            reject(new Error('Request was aborted.'))
+          })
       })
     }
 
-    await processStream(body)
-      // .catch((error) => {
-      //   console.log('err', error)
-      //   // 不加这个错误抛不出来
-      //   throw error
-      // })
-      .finally(cleanup)
+    await processStream(body).finally(cleanup)
   }
 
   public async translate(message: Message, assistant: Assistant, onResponse?: (text: string) => void) {

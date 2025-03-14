@@ -362,7 +362,7 @@ export default class AnthropicProvider extends BaseProvider {
       })
     }
 
-    await processStream(body).finally(cleanup)
+    await processStream(body, 0).finally(cleanup)
   }
 
   /**

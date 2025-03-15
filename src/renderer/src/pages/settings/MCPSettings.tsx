@@ -62,6 +62,7 @@ const MCPSettings: FC = () => {
       // Map the packages to our desired format
       const formattedResults = packages.map((pkg) => {
         return {
+          key: pkg.name,
           name: pkg.name || '',
           description: pkg.description || 'No description available',
           version: pkg.version || 'Latest',

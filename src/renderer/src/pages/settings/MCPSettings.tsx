@@ -338,22 +338,22 @@ const MCPSettings: FC = () => {
       </SettingGroup>
 
       <SettingGroup theme={theme}>
-        <SettingTitle>mcp服务列表（npx）</SettingTitle>
+        <SettingTitle>{t('settings.mcp.npx_list.title')}</SettingTitle>
         <SettingDivider />
         <Paragraph type="secondary" style={{ margin: '0 0 20px 0' }}>
-          搜索并添加 npm 包作为 MCP 服务
+          {t('settings.mcp.npx_list.desc')}
         </Paragraph>
 
         <Space direction="vertical" style={{ width: '100%' }}>
           <Space.Compact style={{ width: '100%' }}>
             <Input
-              placeholder="Enter npm scope (e.g. @your-org)"
+              placeholder={t('settings.mcp.npx_list.scope_placeholder')}
               value={npmScope}
               onChange={(e) => setNpmScope(e.target.value)}
               onPressEnter={handleNpmSearch}
             />
-            <Button type="primary" icon={<SearchOutlined />} onClick={handleNpmSearch} loading={searchLoading}>
-              Search
+            <Button type="primary" icon={<SearchOutlined />} onClick={handleNpmSearch} disabled={searchLoading}>
+              {t('settings.mcp.npx_list.search')}
             </Button>
           </Space.Compact>
 
@@ -366,19 +366,19 @@ const MCPSettings: FC = () => {
               dataSource={searchResults}
               columns={[
                 {
-                  title: 'Package Name',
+                  title: t('settings.mcp.npx_list.package_name'),
                   dataIndex: 'name',
                   key: 'name',
                   width: '200px'
                 },
                 {
-                  title: 'Description',
+                  title: t('settings.mcp.npx_list.description'),
                   key: 'description',
                   render: (_, record: SearchResult) => (
                     <Space direction="vertical" size="small">
                       <Text>{record.description}</Text>
                       <Text type="secondary" style={{ fontSize: '12px' }}>
-                        Usage: {record.usage}
+                        {t('settings.mcp.npx_list.usage')}: {record.usage}
                       </Text>
                       <a href={record.npmLink} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px' }}>
                         {record.npmLink}
@@ -387,13 +387,13 @@ const MCPSettings: FC = () => {
                   )
                 },
                 {
-                  title: 'Version',
+                  title: t('settings.mcp.npx_list.version'),
                   dataIndex: 'version',
                   key: 'version',
                   width: '100px'
                 },
                 {
-                  title: 'Actions',
+                  title: t('settings.mcp.npx_list.actions'),
                   key: 'actions',
                   width: '100px',
                   render: (_, record: SearchResult) => (
@@ -404,7 +404,7 @@ const MCPSettings: FC = () => {
                         // 创建一个临时的 MCP 服务器对象
                         const tempServer: MCPServer = {
                           name: record.name,
-                          description: `${record.description}\nUsage: ${record.usage}\nNPM: ${record.npmLink}`,
+                          description: `${record.description}\n\n${t('settings.mcp.npx_list.usage')}: ${record.usage}\n${t('settings.mcp.npx_list.npm')}: ${record.npmLink}`,
                           command: 'npx',
                           args: ['-y', record.fullName],
                           isActive: true
@@ -413,7 +413,7 @@ const MCPSettings: FC = () => {
                         // 使用 showEditModal 函数设置表单值并显示弹窗
                         showEditModal(tempServer)
                       }}>
-                      Add Server
+                      {t('settings.mcp.addServer')}
                     </Button>
                   )
                 }

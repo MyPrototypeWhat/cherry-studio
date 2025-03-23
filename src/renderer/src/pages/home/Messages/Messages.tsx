@@ -58,11 +58,13 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
   }, [messages])
 
   useEffect(() => {
-    const reversedMessages = [...messages].reverse()
-    const newDisplayMessages = reversedMessages.slice(0, displayCount)
+    const reversedMessages = [...messages]
+    console.log('reversedMessages', reversedMessages)
+    const newDisplayMessages = reversedMessages.slice(displayCount)
 
     setDisplayMessages(newDisplayMessages)
     setHasMore(messages.length > displayCount)
+    console.log('newDisplayMessages', messages.length > displayCount)
   }, [messages, displayCount])
 
   const maxWidth = useMemo(() => {
@@ -207,8 +209,8 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
       key={assistant.id}
       ref={containerRef}
       $right={topicPosition === 'left'}>
-      <NarrowLayout style={{ display: 'flex', flexDirection: 'column-reverse' }}>
-        {messages.length >= 2 && !loading && <NewTopicButton />}
+      <NarrowLayout style={{ display: 'flex', flexDirection: 'column' }}>
+        <Prompt assistant={assistant} key={assistant.prompt} topic={topic} />
         <InfiniteScroll
           dataLength={displayMessages.length}
           next={loadMoreMessages}
@@ -230,7 +232,7 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
             ))}
           </ScrollContainer>
         </InfiniteScroll>
-        <Prompt assistant={assistant} key={assistant.prompt} topic={topic} />
+        {messages.length >= 2 && !loading && <NewTopicButton />}
       </NarrowLayout>
 
       {messageNavigation === 'anchor' && <MessageAnchorLine messages={displayMessages} />}
@@ -257,7 +259,7 @@ const LoaderContainer = styled.div<LoaderProps>`
 
 const ScrollContainer = styled.div`
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
 `
 
 interface ContainerProps {
@@ -266,7 +268,7 @@ interface ContainerProps {
 
 const Container = styled(Scrollbar)<ContainerProps>`
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   padding: 10px 0 20px;
   overflow-x: hidden;
   background-color: var(--color-background);

@@ -2,7 +2,7 @@ import { useTheme } from '@renderer/context/ThemeProvider'
 import { useMermaid } from '@renderer/hooks/useMermaid'
 import { useSettings } from '@renderer/hooks/useSettings'
 import { CodeStyleVarious, ThemeMode } from '@renderer/types'
-import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, PropsWithChildren, useCallback, use, useEffect, useMemo, useState } from 'react'
 import {
   BundledLanguage,
   bundledLanguages,
@@ -91,7 +91,7 @@ export const SyntaxHighlighterProvider: React.FC<PropsWithChildren> = ({ childre
 }
 
 export const useSyntaxHighlighter = () => {
-  const context = useContext(SyntaxHighlighterContext)
+  const context = use(SyntaxHighlighterContext)
   if (!context) {
     throw new Error('useSyntaxHighlighter must be used within a SyntaxHighlighterProvider')
   }

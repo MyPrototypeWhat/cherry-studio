@@ -258,7 +258,7 @@ const MessageLineContainer = styled.div<{ $right: string; $height: number | null
 
 const MessagesList = styled.div`
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   will-change: transform;
 `
 

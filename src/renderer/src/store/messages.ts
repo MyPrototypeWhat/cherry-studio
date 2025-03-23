@@ -521,6 +521,14 @@ export const clearTopicMessagesThunk = (topic: Topic) => async (dispatch: AppDis
   }
 }
 
+export const deleteMessageAction =
+  (topic: Topic, id: string, idType: 'id' | 'askId' = 'id') =>
+  async (dispatch: AppDispatch, getState: () => RootState) => {
+    const messages = getState().messages.messagesByTopic[topic.id] || []
+    const newMessages = messages.filter((m) => m[idType] !== id)
+    await dispatch(updateMessages(topic, newMessages))
+  }
+
 // 修改的 updateMessages thunk，同时更新缓存
 export const updateMessages = (topic: Topic, messages: Message[]) => async (dispatch: AppDispatch) => {
   try {

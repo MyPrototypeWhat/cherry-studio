@@ -372,7 +372,7 @@ const MessageMenubar: FC<Props> = (props) => {
         okButtonProps={{ danger: true }}
         icon={<QuestionCircleOutlined style={{ color: 'red' }} />}
         onOpenChange={(open) => open && setShowDeleteTooltip(false)}
-        onConfirm={() => deleteMessage(message)}>
+        onConfirm={() => deleteMessage(message.id)}>
         <ActionButton className="message-action-button" onClick={(e) => e.stopPropagation()}>
           <Tooltip
             title={t('common.delete')}

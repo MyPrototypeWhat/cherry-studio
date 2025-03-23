@@ -11,7 +11,8 @@ import {
   setStreamMessage,
   setTopicLoading,
   updateMessage,
-  updateMessages
+  updateMessages,
+  deleteMessageAction
 } from '@renderer/store/messages'
 import type { Assistant, Message, Topic } from '@renderer/types'
 import { abortCompletion } from '@renderer/utils/abortController'
@@ -32,11 +33,10 @@ export function useMessageOperations(topic: Topic) {
    * 删除单个消息
    */
   const deleteMessage = useCallback(
-    async (message: Message) => {
-      const newMessages = messages.filter((m) => m.id !== message.id)
-      await dispatch(updateMessages(topic, newMessages))
+    async (id: string) => {
+      await dispatch(deleteMessageAction(topic, id))
     },
-    [dispatch, topic, messages]
+    [dispatch, topic]
   )
 
   /**
@@ -44,10 +44,9 @@ export function useMessageOperations(topic: Topic) {
    */
   const deleteGroupMessages = useCallback(
     async (askId: string) => {
-      const newMessages = messages.filter((m) => m.askId !== askId)
-      await dispatch(updateMessages(topic, newMessages))
+      await dispatch(deleteMessageAction(topic, askId, 'askId'))
     },
-    [dispatch, topic, messages]
+    [dispatch, topic]
   )
 
   /**

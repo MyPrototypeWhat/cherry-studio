@@ -122,7 +122,7 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
           const lastMessage = last(messages)
 
           if (lastMessage?.type === 'clear') {
-            await deleteMessage(lastMessage)
+            await deleteMessage(lastMessage.id)
             scrollToBottom()
             return
           }

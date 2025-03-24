@@ -18,6 +18,7 @@ import {
   removeSpecialCharactersForFileName,
   runAsyncFunction
 } from '@renderer/utils'
+import { createScrollHandler, scrollToBottom as _scrollToBottom } from '@renderer/utils/scroll'
 import { flatten, last, take } from 'lodash'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -26,8 +27,8 @@ import BeatLoader from 'react-spinners/BeatLoader'
 import styled from 'styled-components'
 
 import ChatNavigation from './ChatNavigation'
-import MessageGroup from './MessageGroup'
 import MessageAnchorLine from './MessageAnchorLine'
+import MessageGroup from './MessageGroup'
 import NarrowLayout from './NarrowLayout'
 import NewTopicButton from './NewTopicButton'
 import Prompt from './Prompt'
@@ -43,13 +44,14 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
   const { showTopics, topicPosition, showAssistants, messageNavigation } = useSettings()
   const { updateTopic, addTopic } = useAssistant(assistant.id)
   const dispatch = useAppDispatch()
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLElement>(null)
   const [displayMessages, setDisplayMessages] = useState<Message[]>([])
   const [hasMore, setHasMore] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isProcessingContext, setIsProcessingContext] = useState(false)
   const { messages, displayCount, loading, updateMessages, clearTopicMessages, deleteMessage } =
     useMessageOperations(topic)
+  const shouldScrollToBottom = useRef(true)
 
   const messagesRef = useRef<Message[]>(messages)
 
@@ -59,12 +61,10 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
 
   useEffect(() => {
     const reversedMessages = [...messages]
-    console.log('reversedMessages', reversedMessages)
-    const newDisplayMessages = reversedMessages.slice(displayCount)
+    const newDisplayMessages = reversedMessages.slice(-displayCount)
 
     setDisplayMessages(newDisplayMessages)
     setHasMore(messages.length > displayCount)
-    console.log('newDisplayMessages', messages.length > displayCount)
   }, [messages, displayCount])
 
   const maxWidth = useMemo(() => {
@@ -74,13 +74,25 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
     return `calc(100vw - var(--sidebar-width) ${minusAssistantsWidth} ${minusRightTopicsWidth} - 5px)`
   }, [showAssistants, showTopics, topicPosition])
 
-  const scrollToBottom = useCallback(() => {
-    setTimeout(() => containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight, behavior: 'auto' }), 50)
-  }, [])
+  const scrollToBottom = (isAtBottom: boolean, el: HTMLElement) => {
+    isAtBottom && _scrollToBottom({ el })
+  }
+  const handleScroll = createScrollHandler((isAtBottom, el) => {
+    console.log('handleScroll', isAtBottom, !!el)
+    shouldScrollToBottom.current = isAtBottom
+    scrollToBottom(isAtBottom, el)
+  })
 
   useEffect(() => {
+    scrollToBottom(shouldScrollToBottom.current, containerRef.current)
+  }, [displayMessages.length])
+
+  useEffect(() => {
+    const scrollToBottomEvent = () => {
+      scrollToBottom(true, containerRef.current)
+    }
     const unsubscribes = [
-      EventEmitter.on(EVENT_NAMES.SEND_MESSAGE, scrollToBottom),
+      EventEmitter.on(EVENT_NAMES.SEND_MESSAGE, scrollToBottomEvent),
       EventEmitter.on(EVENT_NAMES.CLEAR_MESSAGES, async (data: Topic) => {
         const defaultTopic = getDefaultTopic(assistant.id)
 
@@ -217,6 +229,7 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
           hasMore={hasMore}
           loader={null}
           inverse={true}
+          onScroll={handleScroll}
           scrollableTarget="messages">
           <ScrollContainer>
             <LoaderContainer $loading={isLoadingMore}>

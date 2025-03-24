@@ -6,8 +6,9 @@ import { fetchChatCompletion } from '@renderer/services/ApiService'
 import { getAssistantMessage, resetAssistantMessage } from '@renderer/services/MessagesService'
 import type { AppDispatch, RootState } from '@renderer/store'
 import type { Assistant, Message, Topic } from '@renderer/types'
-import { Model } from '@renderer/types'
+import type { Model } from '@renderer/types'
 import { clearTopicQueue, getTopicQueue, waitForTopicQueue } from '@renderer/utils/queue'
+import { createScrollHandler, scrollToBottom } from '@renderer/utils/scroll'
 import { cloneDeep, isEmpty, throttle } from 'lodash'
 
 export interface MessagesState {
@@ -187,6 +188,14 @@ const messagesSlice = createSlice({
   }
 })
 
+const handleScroll = createScrollHandler(
+  (isAtBottom, el) => {
+    if (isAtBottom) {
+      scrollToBottom({ el })
+    }
+  },
+  { elementId: 'messages' }
+)
 const handleResponseMessageUpdate = (
   assistant: Assistant,
   message: Message,
@@ -195,6 +204,8 @@ const handleResponseMessageUpdate = (
   getState: () => RootState
 ) => {
   dispatch(setStreamMessage({ topicId, message }))
+  handleScroll()
+  // EventEmitter.emit(EVENT_NAMES.SEND_MESSAGE)
   if (message.status !== 'pending') {
     // When message is complete, commit to messages and sync with DB
     if (message.status === 'success') {

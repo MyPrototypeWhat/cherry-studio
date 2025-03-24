@@ -2,7 +2,7 @@ import Scrollbar from '@renderer/components/Scrollbar'
 import { LOAD_MORE_COUNT } from '@renderer/config/constant'
 import db from '@renderer/databases'
 import { useAssistant } from '@renderer/hooks/useAssistant'
-import { useMessageOperations } from '@renderer/hooks/useMessageOperations'
+import { useMessageOperations, useTopicMessages } from '@renderer/hooks/useMessageOperations'
 import { useSettings } from '@renderer/hooks/useSettings'
 import { useShortcut } from '@renderer/hooks/useShortcuts'
 import { autoRenameTopic, getTopic } from '@renderer/hooks/useTopic'
@@ -18,7 +18,6 @@ import {
   removeSpecialCharactersForFileName,
   runAsyncFunction
 } from '@renderer/utils'
-import { createScrollHandler, scrollToBottom as _scrollToBottom } from '@renderer/utils/scroll'
 import { flatten, last, take } from 'lodash'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -39,6 +38,42 @@ interface MessagesProps {
   setActiveTopic: (topic: Topic) => void
 }
 
+const computeDisplayMessages = (messages: Message[], startIndex: number, displayCount: number) => {
+  const reversedMessages = [...messages].reverse()
+
+  // 如果剩余消息数量小于 displayCount，直接返回所有剩余消息
+  if (reversedMessages.length - startIndex <= displayCount) {
+    return reversedMessages.slice(startIndex)
+  }
+
+  const userIdSet = new Set() // 用户消息 id 集合
+  const assistantIdSet = new Set() // 助手消息 askId 集合
+  const displayMessages: Message[] = []
+
+  // 处理单条消息的函数
+  const processMessage = (message: Message) => {
+    if (!message) return
+
+    const idSet = message.role === 'user' ? userIdSet : assistantIdSet
+    const messageId = message.role === 'user' ? message.id : message.askId
+
+    if (!idSet.has(messageId)) {
+      idSet.add(messageId)
+      displayMessages.push(message)
+      return
+    }
+    // 如果是相同 askId 的助手消息，也要显示
+    displayMessages.push(message)
+  }
+
+  // 遍历消息直到满足显示数量要求
+  for (let i = startIndex; i < reversedMessages.length && userIdSet.size + assistantIdSet.size < displayCount; i++) {
+    processMessage(reversedMessages[i])
+  }
+
+  return displayMessages
+}
+
 const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic }) => {
   const { t } = useTranslation()
   const { showTopics, topicPosition, showAssistants, messageNavigation } = useSettings()
@@ -49,9 +84,9 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
   const [hasMore, setHasMore] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isProcessingContext, setIsProcessingContext] = useState(false)
-  const { messages, displayCount, loading, updateMessages, clearTopicMessages, deleteMessage } =
-    useMessageOperations(topic)
-  const shouldScrollToBottom = useRef(true)
+  const messages = useTopicMessages(topic)
+
+  const { displayCount, loading, updateMessages, clearTopicMessages, deleteMessage } = useMessageOperations(topic)
 
   const messagesRef = useRef<Message[]>(messages)
 
@@ -60,9 +95,7 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
   }, [messages])
 
   useEffect(() => {
-    const reversedMessages = [...messages]
-    const newDisplayMessages = reversedMessages.slice(-displayCount)
-
+    const newDisplayMessages = computeDisplayMessages(messages, 0, displayCount)
     setDisplayMessages(newDisplayMessages)
     setHasMore(messages.length > displayCount)
   }, [messages, displayCount])
@@ -74,25 +107,21 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
     return `calc(100vw - var(--sidebar-width) ${minusAssistantsWidth} ${minusRightTopicsWidth} - 5px)`
   }, [showAssistants, showTopics, topicPosition])
 
-  const scrollToBottom = (isAtBottom: boolean, el: HTMLElement) => {
-    isAtBottom && _scrollToBottom({ el })
-  }
-  const handleScroll = createScrollHandler((isAtBottom, el) => {
-    console.log('handleScroll', isAtBottom, !!el)
-    shouldScrollToBottom.current = isAtBottom
-    scrollToBottom(isAtBottom, el)
-  })
-
-  useEffect(() => {
-    scrollToBottom(shouldScrollToBottom.current, containerRef.current)
-  }, [displayMessages.length])
-
-  useEffect(() => {
-    const scrollToBottomEvent = () => {
-      scrollToBottom(true, containerRef.current)
+  const scrollToBottom = useCallback(() => {
+    if (containerRef.current) {
+      requestAnimationFrame(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollTo({
+            top: containerRef.current.scrollHeight
+          })
+        }
+      })
     }
+  }, [])
+
+  useEffect(() => {
     const unsubscribes = [
-      EventEmitter.on(EVENT_NAMES.SEND_MESSAGE, scrollToBottomEvent),
+      EventEmitter.on(EVENT_NAMES.SEND_MESSAGE, scrollToBottom),
       EventEmitter.on(EVENT_NAMES.CLEAR_MESSAGES, async (data: Topic) => {
         const defaultTopic = getDefaultTopic(assistant.id)
 
@@ -197,10 +226,9 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
     setIsLoadingMore(true)
     setTimeout(() => {
       const currentLength = displayMessages.length
-      const reversedMessages = [...messages].reverse()
-      const moreMessages = reversedMessages.slice(currentLength, currentLength + LOAD_MORE_COUNT)
+      const newMessages = computeDisplayMessages(messages, currentLength, LOAD_MORE_COUNT)
 
-      setDisplayMessages((prev) => [...prev, ...moreMessages])
+      setDisplayMessages((prev) => [...prev, ...newMessages])
       setHasMore(currentLength + LOAD_MORE_COUNT < messages.length)
       setIsLoadingMore(false)
     }, 300)
@@ -213,7 +241,6 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
       window.message.success(t('message.copy.success'))
     }
   })
-
   return (
     <Container
       id="messages"
@@ -221,16 +248,16 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
       key={assistant.id}
       ref={containerRef}
       $right={topicPosition === 'left'}>
-      <NarrowLayout style={{ display: 'flex', flexDirection: 'column' }}>
-        <Prompt assistant={assistant} key={assistant.prompt} topic={topic} />
+      <NarrowLayout style={{ display: 'flex', flexDirection: 'column-reverse' }}>
+        {messages.length >= 2 && !loading && <NewTopicButton />}
         <InfiniteScroll
           dataLength={displayMessages.length}
           next={loadMoreMessages}
           hasMore={hasMore}
           loader={null}
-          inverse={true}
-          onScroll={handleScroll}
-          scrollableTarget="messages">
+          hasChildren={false}
+          scrollableTarget="messages"
+          inverse>
           <ScrollContainer>
             <LoaderContainer $loading={isLoadingMore}>
               <BeatLoader size={8} color="var(--color-text-2)" />
@@ -245,7 +272,7 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
             ))}
           </ScrollContainer>
         </InfiniteScroll>
-        {messages.length >= 2 && !loading && <NewTopicButton />}
+        <Prompt assistant={assistant} key={assistant.prompt} topic={topic} />
       </NarrowLayout>
 
       {messageNavigation === 'anchor' && <MessageAnchorLine messages={displayMessages} />}
@@ -272,7 +299,7 @@ const LoaderContainer = styled.div<LoaderProps>`
 
 const ScrollContainer = styled.div`
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
 `
 
 interface ContainerProps {
@@ -281,7 +308,7 @@ interface ContainerProps {
 
 const Container = styled(Scrollbar)<ContainerProps>`
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   padding: 10px 0 20px;
   overflow-x: hidden;
   background-color: var(--color-background);

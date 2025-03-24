@@ -7,12 +7,12 @@ import {
   resendMessage,
   selectDisplayCount,
   selectTopicLoading,
-  selectTopicMessages,
   setStreamMessage,
   setTopicLoading,
   updateMessage,
   updateMessages,
-  deleteMessageAction
+  deleteMessageAction,
+  selectTopicMessages
 } from '@renderer/store/messages'
 import type { Assistant, Message, Topic } from '@renderer/types'
 import { abortCompletion } from '@renderer/utils/abortController'
@@ -27,7 +27,6 @@ import { TopicManager } from './useTopic'
  */
 export function useMessageOperations(topic: Topic) {
   const dispatch = useAppDispatch()
-  const messages = useAppSelector((state) => selectTopicMessages(state, topic.id))
 
   /**
    * 删除单个消息
@@ -199,7 +198,6 @@ export function useMessageOperations(topic: Topic) {
   )
 
   return {
-    messages,
     loading,
     displayCount,
     updateMessages: updateMessagesAction,
@@ -217,4 +215,9 @@ export function useMessageOperations(topic: Topic) {
     pauseMessages,
     resumeMessage
   }
+}
+
+export const useTopicMessages = (topic: Topic) => {
+  const messages = useAppSelector((state) => selectTopicMessages(state, topic.id))
+  return messages
 }

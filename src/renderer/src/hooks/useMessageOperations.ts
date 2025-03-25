@@ -11,8 +11,8 @@ import {
   selectTopicMessages,
   setStreamMessage,
   setTopicLoading,
-  updateMessage,
-  updateMessages
+  updateMessages,
+  updateMessageThunk
 } from '@renderer/store/messages'
 import type { Assistant, Message, Topic } from '@renderer/types'
 import { abortCompletion } from '@renderer/utils/abortController'
@@ -53,13 +53,7 @@ export function useMessageOperations(topic: Topic) {
    */
   const editMessage = useCallback(
     async (messageId: string, updates: Partial<Message>) => {
-      await dispatch(
-        updateMessage({
-          topicId: topic.id,
-          messageId,
-          updates
-        })
-      )
+      await dispatch(updateMessageThunk(topic.id, messageId, updates))
     },
     [dispatch, topic.id]
   )

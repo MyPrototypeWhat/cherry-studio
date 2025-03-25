@@ -8,7 +8,7 @@ import type { AppDispatch, RootState } from '@renderer/store'
 import type { Assistant, Message, Topic } from '@renderer/types'
 import type { Model } from '@renderer/types'
 import { clearTopicQueue, getTopicQueue, waitForTopicQueue } from '@renderer/utils/queue'
-import { cloneDeep, isEmpty, throttle } from 'lodash'
+import { isEmpty, throttle } from 'lodash'
 
 export interface MessagesState {
   messagesByTopic: Record<string, Message[]>
@@ -113,14 +113,10 @@ const messagesSlice = createSlice({
     ) => {
       const { topicId, messageId, updates } = action.payload
       const topicMessages = state.messagesByTopic[topicId]
-
       if (topicMessages) {
         const message = topicMessages.find((msg) => msg.id === messageId)
         if (message) {
           Object.assign(message, updates)
-          db.topics.update(topicId, {
-            messages: topicMessages.map((m) => (m.id === message.id ? cloneDeep(message) : cloneDeep(m)))
-          })
         }
       }
     },
@@ -255,7 +251,7 @@ export const sendMessage =
             const isGroupedMessage = messageToReset.length > 1
             const resetMessage = resetAssistantMessage(m, isGroupedMessage ? m.model : assistant.model)
             // 更新状态
-            dispatch(updateMessage({ topicId: topic.id, messageId: m.id, updates: resetMessage }))
+            dispatch(updateMessageThunk(topic.id, m.id, resetMessage))
             // 使用重置后的消息
             return resetMessage
           })
@@ -263,7 +259,7 @@ export const sendMessage =
           const { model, id } = messageToReset
           const resetMessage = resetAssistantMessage(messageToReset, model)
           // 更新状态
-          dispatch(updateMessage({ topicId: topic.id, messageId: id, updates: resetMessage }))
+          dispatch(updateMessageThunk(topic.id, id, resetMessage))
           // 使用重置后的消息
           assistantMessages.push(resetMessage)
         }
@@ -396,10 +392,9 @@ export const sendMessage =
           } catch (error: any) {
             console.error('Error in chat completion:', error)
             dispatch(
-              updateMessage({
-                topicId: topic.id,
-                messageId: assistantMessage.id,
-                updates: { status: 'error', error: { message: error.message } }
+              updateMessageThunk(topic.id, assistantMessage.id, {
+                status: 'error',
+                error: { message: error.message }
               })
             )
             dispatch(clearStreamMessage({ topicId: topic.id, messageId: assistantMessage.id }))
@@ -448,10 +443,9 @@ export const resendMessage =
       const userMessage = topicMessages.find((m) => m.id === message.askId && m.role === 'user')
       if (!userMessage) {
         dispatch(
-          updateMessage({
-            topicId: topic.id,
-            messageId: message.id,
-            updates: { status: 'error', error: { message: i18n.t('error.user_message_not_found') } }
+          updateMessageThunk(topic.id, message.id, {
+            status: 'error',
+            error: { message: i18n.t('error.user_message_not_found') }
           })
         )
         console.error(i18n.t('error.user_message_not_found'))
@@ -541,6 +535,28 @@ export const updateMessages = (topic: Topic, messages: Message[]) => async (disp
     dispatch(setError(error instanceof Error ? error.message : 'Failed to update messages'))
   }
 }
+
+// 新增一个 thunk 来处理消息更新
+export const updateMessageThunk =
+  (topicId: string, messageId: string, updates: Partial<Message>) =>
+  async (dispatch: AppDispatch, getState: () => RootState) => {
+    try {
+      // 先更新 Redux 状态
+      dispatch(updateMessage({ topicId, messageId, updates }))
+
+      // 然后同步到数据库
+      const state = getState()
+      const topicMessages = state.messages.messagesByTopic[topicId]
+      if (topicMessages) {
+        await db.topics.update(topicId, {
+          messages: topicMessages
+        })
+      }
+    } catch (error) {
+      console.error('Failed to update message:', error)
+      dispatch(setError(error instanceof Error ? error.message : 'Failed to update message'))
+    }
+  }
 
 // Selectors
 export const selectCurrentTopicId = (state: RootState): string | null => {

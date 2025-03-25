@@ -554,11 +554,10 @@ export const selectTopicMessages = createSelector(
 )
 
 // 获取特定话题的loading状态
-export const selectTopicLoading = (state: RootState, topicId?: string): boolean => {
-  const messagesState = state.messages as MessagesState
-  const currentTopicId = topicId || messagesState.currentTopic?.id || ''
-  return currentTopicId ? (messagesState.loadingByTopic[currentTopicId] ?? false) : false
-}
+export const selectTopicLoading = createSelector(
+  [(state: RootState) => state.messages.loadingByTopic, (_, topicId?: string) => topicId],
+  (loadingByTopic, topicId) => (topicId ? (loadingByTopic[topicId] ?? false) : false)
+)
 
 export const selectDisplayCount = (state: RootState): number => {
   const messagesState = state.messages as MessagesState

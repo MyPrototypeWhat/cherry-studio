@@ -4,15 +4,15 @@ import {
   clearStreamMessage,
   clearTopicMessages,
   commitStreamMessage,
+  deleteMessageAction,
   resendMessage,
   selectDisplayCount,
   selectTopicLoading,
+  selectTopicMessages,
   setStreamMessage,
   setTopicLoading,
   updateMessage,
-  updateMessages,
-  deleteMessageAction,
-  selectTopicMessages
+  updateMessages
 } from '@renderer/store/messages'
 import type { Assistant, Message, Topic } from '@renderer/types'
 import { abortCompletion } from '@renderer/utils/abortController'
@@ -146,7 +146,6 @@ export function useMessageOperations(topic: Topic) {
     EventEmitter.emit(EVENT_NAMES.NEW_CONTEXT)
   }, [])
 
-  const loading = useAppSelector((state) => selectTopicLoading(state, topic.id))
   const displayCount = useAppSelector(selectDisplayCount)
   // /**
   //  * 获取当前消息列表
@@ -198,7 +197,6 @@ export function useMessageOperations(topic: Topic) {
   )
 
   return {
-    loading,
     displayCount,
     updateMessages: updateMessagesAction,
     deleteMessage,
@@ -220,4 +218,9 @@ export function useMessageOperations(topic: Topic) {
 export const useTopicMessages = (topic: Topic) => {
   const messages = useAppSelector((state) => selectTopicMessages(state, topic.id))
   return messages
+}
+
+export const useTopicLoading = (topic: Topic) => {
+  const loading = useAppSelector((state) => selectTopicLoading(state, topic.id))
+  return loading
 }

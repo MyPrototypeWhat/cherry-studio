@@ -13,7 +13,7 @@ import TranslateButton from '@renderer/components/TranslateButton'
 import { isFunctionCallingModel, isVisionModel, isWebSearchModel } from '@renderer/config/models'
 import db from '@renderer/databases'
 import { useAssistant } from '@renderer/hooks/useAssistant'
-import { useMessageOperations } from '@renderer/hooks/useMessageOperations'
+import { useMessageOperations, useTopicLoading } from '@renderer/hooks/useMessageOperations'
 import { modelGenerating, useRuntime } from '@renderer/hooks/useRuntime'
 import { useMessageStyle, useSettings } from '@renderer/hooks/useSettings'
 import { useShortcut, useShortcutDisplay } from '@renderer/hooks/useShortcuts'
@@ -82,7 +82,8 @@ const Inputbar: FC<Props> = ({ assistant: _assistant, setActiveTopic, topic }) =
   const containerRef = useRef(null)
   const { searching } = useRuntime()
   const { isBubbleStyle } = useMessageStyle()
-  const { loading, pauseMessages } = useMessageOperations(topic)
+  const { pauseMessages } = useMessageOperations(topic)
+  const loading = useTopicLoading(topic)
   const dispatch = useAppDispatch()
   const [spaceClickCount, setSpaceClickCount] = useState(0)
   const spaceClickTimer = useRef<NodeJS.Timeout>()

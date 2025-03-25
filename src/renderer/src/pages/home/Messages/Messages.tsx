@@ -254,7 +254,6 @@ const Messages: React.FC<MessagesProps> = ({ assistant, topic, setActiveTopic })
           next={loadMoreMessages}
           hasMore={hasMore}
           loader={null}
-          hasChildren={false}
           scrollableTarget="messages"
           inverse>
           <ScrollContainer>

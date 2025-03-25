@@ -27,6 +27,7 @@ import { captureScrollableDivAsBlob, captureScrollableDivAsDataURL, removeTraili
 import {
   exportMarkdownToJoplin,
   exportMarkdownToNotion,
+  exportMarkdownToSiyuan,
   exportMarkdownToYuque,
   exportMessageAsMarkdown,
   messageToMarkdown
@@ -248,11 +249,20 @@ const MessageMenubar: FC<Props> = (props) => {
               const markdown = messageToMarkdown(message)
               exportMarkdownToJoplin(title, markdown)
             }
+          },
+          {
+            label: t('chat.topics.export.siyuan'),
+            key: 'siyuan',
+            onClick: async () => {
+              const title = getMessageTitle(message)
+              const markdown = messageToMarkdown(message)
+              exportMarkdownToSiyuan(title, markdown)
+            }
           }
         ]
       }
     ],
-    [message, messageContainerRef, onEdit, onNewBranch, t]
+    [message, messageContainerRef, onEdit, onNewBranch, t, topic.name]
   )
 
   const onRegenerate = async (e: React.MouseEvent | undefined) => {

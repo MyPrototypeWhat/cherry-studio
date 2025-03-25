@@ -129,7 +129,9 @@ const MessageTools: FC<Props> = ({ message }) => {
         onCancel={() => setExpandedResponse(null)}
         footer={null}
         width="80%"
-        bodyStyle={{ maxHeight: '80vh', overflow: 'auto' }}>
+        styles={{
+          body: { maxHeight: '80vh', overflow: 'auto' }
+        }}>
         {expandedResponse && (
           <ExpandedResponseContainer style={{ fontFamily, fontSize }}>
             <ActionButton

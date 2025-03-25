@@ -1,16 +1,11 @@
 import { useTheme } from '@renderer/context/ThemeProvider'
 import { useMermaid } from '@renderer/hooks/useMermaid'
 import { useSettings } from '@renderer/hooks/useSettings'
-import { CodeStyleVarious, ThemeMode } from '@renderer/types'
-import React, { createContext, PropsWithChildren, useCallback, use, useEffect, useMemo, useState } from 'react'
-import {
-  BundledLanguage,
-  bundledLanguages,
-  BundledTheme,
-  bundledThemes,
-  createHighlighter,
-  HighlighterGeneric
-} from 'shiki'
+import { type CodeStyleVarious, ThemeMode } from '@renderer/types'
+import type React from 'react'
+import { createContext, type PropsWithChildren, use, useCallback, useEffect, useMemo, useState } from 'react'
+import type { BundledLanguage, BundledTheme, HighlighterGeneric } from 'shiki'
+import { bundledLanguages, bundledThemes, createHighlighter } from 'shiki'
 
 interface SyntaxHighlighterContextType {
   codeToHtml: (code: string, language: string) => Promise<string>

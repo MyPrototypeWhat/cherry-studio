@@ -60,18 +60,19 @@ export default class MCPService extends EventEmitter {
 
   private async ensureConfigExists(): Promise<void> {
     try {
-      console.log('configPath', this.configPath)
       await fs.access(this.configPath)
     } catch {
-      // 如果文件不存在，创建默认配置
+      // 创建默认配置，使用对象结构
       const defaultConfig = {
         mcpServers: {
           'mcp-auto-install': {
+            name: 'mcp-auto-install',
             command: 'npx',
             args: ['-y', '@mcpmarket/mcp-auto-install', 'connect'],
             env: {
               MCP_SETTINGS_PATH: this.configPath
-            }
+            },
+            isActive: true
           }
         }
       }
@@ -85,7 +86,21 @@ export default class MCPService extends EventEmitter {
     try {
       const data = await fs.readFile(this.configPath, 'utf-8')
       const config = JSON.parse(data)
-      return Array.isArray(config.mcpServers) ? config.mcpServers : []
+
+      // 兼容旧格式（servers 数组）
+      if (Array.isArray(config.servers)) {
+        return config.servers
+      }
+
+      // 兼容新格式（mcpServers 对象）
+      if (config.mcpServers && typeof config.mcpServers === 'object') {
+        return Object.entries(config.mcpServers).map(([name, serverData]) => ({
+          name,
+          ...(serverData as Omit<MCPServer, 'name'>)
+        }))
+      }
+
+      return []
     } catch (error) {
       log.error('[MCP] Error loading config file:', error)
       return []
@@ -94,7 +109,17 @@ export default class MCPService extends EventEmitter {
 
   private async saveConfigToFile(servers: MCPServer[]): Promise<void> {
     try {
-      const config = { servers }
+      // 将数组转换为对象结构
+      const mcpServers = servers.reduce(
+        (acc, server) => {
+          const { name, ...serverData } = server
+          acc[name] = serverData
+          return acc
+        },
+        {} as Record<string, Omit<MCPServer, 'name'>>
+      )
+
+      const config = { mcpServers }
       await fs.writeFile(this.configPath, JSON.stringify(config, null, 2))
     } catch (error) {
       log.error('[MCP] Error saving config file:', error)
@@ -106,23 +131,27 @@ export default class MCPService extends EventEmitter {
    * Set servers received from Redux and trigger initialization if needed
    */
   public setServers(servers: MCPServer[]): void {
-    this.servers = servers
-    log.info(`[MCP] Received ${servers.length} servers from Redux`)
+    // 如果已初始化，则更新服务器列表并保存到文件
+    if (this.initialized) {
+      this.servers = servers
+      log.info(`[MCP] Received ${servers.length} servers from Redux, saving to file`)
 
-    // 保存到文件
-    this.saveConfigToFile(servers).catch((err) => {
-      log.error('[MCP] Failed to save servers to file:', err)
-    })
+      // 保存到文件
+      this.saveConfigToFile(servers).catch((err) => {
+        log.error('[MCP] Failed to save servers to file:', err)
+      })
+    } else {
+      log.info(`[MCP] Received ${servers.length} servers from Redux, but service not initialized yet`)
+      this.servers = servers
 
-    // Mark servers as loaded and resolve the waiting promise
-    if (!this.readyState.serversLoaded && this.readyState.resolve) {
-      this.readyState.serversLoaded = true
-      this.readyState.resolve()
-      this.readyState.resolve = null
-    }
+      // 如果未初始化，则标记已加载并解决 Promise
+      if (!this.readyState.serversLoaded && this.readyState.resolve) {
+        this.readyState.serversLoaded = true
+        this.readyState.resolve()
+        this.readyState.resolve = null
+      }
 
-    // Initialize if not already initialized
-    if (!this.initialized) {
+      // 初始化服务
       this.init().catch((err) => this.logError('Failed to initialize MCP service', err))
     }
   }
@@ -141,16 +170,6 @@ export default class MCPService extends EventEmitter {
         // 确保配置文件存在
         await this.ensureConfigExists()
 
-        // 从文件加载配置
-        const servers = await this.loadConfigFromFile()
-        if (servers.length > 0) {
-          this.servers = servers
-          this.notifyReduxServersChanged(servers)
-        }
-
-        // 等待 Redux 更新完成
-        await this.waitForServers()
-
         // 加载 SDK 组件
         const [Client, StdioTransport, SSETransport] = await Promise.all([
           this.importClient(),
@@ -162,8 +181,21 @@ export default class MCPService extends EventEmitter {
         this.stdioTransport = StdioTransport
         this.sseTransport = SSETransport
 
-        // 标记为已初始化
+        // 直接从文件加载配置，不再等待 Redux
+        const serversFromFile = await this.loadConfigFromFile()
+        if (serversFromFile.length > 0) {
+          this.servers = serversFromFile
+          // 将从文件加载的配置通知给 Redux
+          this.notifyReduxServersChanged(serversFromFile)
+        }
+
+        // 标记为已初始化并解决 readyState 的 Promise
         this.initialized = true
+        if (this.readyState.resolve) {
+          this.readyState.serversLoaded = true
+          this.readyState.resolve()
+          this.readyState.resolve = null
+        }
 
         // 加载活跃服务器
         await this.loadActiveServers()
@@ -180,17 +212,6 @@ export default class MCPService extends EventEmitter {
     })()
 
     return this.initPromise
-  }
-
-  /**
-   * Wait for servers to be loaded from Redux
-   */
-  private async waitForServers(): Promise<void> {
-    if (!this.readyState.serversLoaded && this.readyState.promise) {
-      log.info('[MCP] Waiting for servers data from Redux...')
-      await this.readyState.promise
-      log.info('[MCP] Servers received, continuing initialization')
-    }
   }
 
   /**
@@ -680,5 +701,12 @@ export default class MCPService extends EventEmitter {
 
     // 转换回字符串
     return Array.from(existingPaths).join(pathSeparator)
+  }
+
+  private async updateServerInRedux(server: MCPServer): Promise<void> {
+    const updatedServers = this.servers.map((s) => (s.name === server.name ? server : s))
+    this.servers = updatedServers
+    this.notifyReduxServersChanged(updatedServers)
+    await this.saveConfigToFile(updatedServers)
   }
 }

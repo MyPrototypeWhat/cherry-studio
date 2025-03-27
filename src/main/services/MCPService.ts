@@ -79,12 +79,10 @@ export default class MCPService extends EventEmitter {
       // 尝试从Redux获取已有配置
       try {
         const mainWindow = windowService.getMainWindow()
-        console.log('mainWindowmainWindowmainWindow', mainWindow)
         if (mainWindow) {
           const servers = await mainWindow.webContents.executeJavaScript(`
             window.store.getState().mcp.servers
           `)
-          console.log('serversserversserversmainWindowmainWindowmainWindow', servers)
           if (servers && servers.length > 0) {
             // 将从Redux获取的配置保存到文件
             await this.saveConfigToFile(servers.concat([defaultServers]))
@@ -125,7 +123,6 @@ export default class MCPService extends EventEmitter {
   private async saveConfigToFile(servers: MCPServer[]): Promise<void> {
     try {
       // 将数组转换为对象结构
-      console.log('serversserversservers', servers)
       const mcpServers = servers.reduce(
         (acc, server) => {
           const { name, ...serverData } = server
@@ -147,9 +144,6 @@ export default class MCPService extends EventEmitter {
    * Set servers received from Redux and trigger initialization if needed
    */
   public setServers(servers: any): void {
-    // 处理可能来自Redux的嵌套结构
-    console.log('setServerssetServerssetServers', servers, this.initialized)
-
     // 如果已初始化，则更新服务器列表并保存到文件
     this.servers = servers
     if (this.initialized) {
@@ -721,18 +715,5 @@ export default class MCPService extends EventEmitter {
 
     // 转换回字符串
     return Array.from(existingPaths).join(pathSeparator)
-  }
-
-  private async updateServerInRedux(server: MCPServer): Promise<void> {
-    const updatedServers = this.servers.map((s) => (s.name === server.name ? server : s))
-    this.servers = updatedServers
-
-    try {
-      await this.saveConfigToFile(updatedServers)
-      this.notifyReduxServersChanged(updatedServers)
-    } catch (error) {
-      log.error('[MCP] Failed to sync server changes:', error)
-      throw error
-    }
   }
 }

@@ -56,7 +56,8 @@ export function useMessageOperations(topic: Topic) {
     async (messageId: string, updates: Partial<Message>) => {
       // 如果更新包含内容变更，重新计算 token
       if ('content' in updates) {
-        const message = messages.find((m) => m.id === messageId)
+        const messages = store.getState().messages.messagesByTopic[topic.id]
+        const message = messages?.find((m) => m.id === messageId)
         if (message) {
           const updatedMessage = { ...message, ...updates }
           const usage = await estimateMessageUsage(updatedMessage)
@@ -65,7 +66,7 @@ export function useMessageOperations(topic: Topic) {
       }
       await dispatch(updateMessageThunk(topic.id, messageId, updates))
     },
-    [dispatch, topic.id, messages]
+    [dispatch, topic.id]
   )
 
   /**

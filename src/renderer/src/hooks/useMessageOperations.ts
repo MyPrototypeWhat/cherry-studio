@@ -1,4 +1,5 @@
 import { EVENT_NAMES, EventEmitter } from '@renderer/services/EventService'
+import { estimateMessageUsage } from '@renderer/services/TokenService'
 import store, { useAppDispatch, useAppSelector } from '@renderer/store'
 import {
   clearStreamMessage,
@@ -53,9 +54,18 @@ export function useMessageOperations(topic: Topic) {
    */
   const editMessage = useCallback(
     async (messageId: string, updates: Partial<Message>) => {
+      // 如果更新包含内容变更，重新计算 token
+      if ('content' in updates) {
+        const message = messages.find((m) => m.id === messageId)
+        if (message) {
+          const updatedMessage = { ...message, ...updates }
+          const usage = await estimateMessageUsage(updatedMessage)
+          updates.usage = usage
+        }
+      }
       await dispatch(updateMessageThunk(topic.id, messageId, updates))
     },
-    [dispatch, topic.id]
+    [dispatch, topic.id, messages]
   )
 
   /**

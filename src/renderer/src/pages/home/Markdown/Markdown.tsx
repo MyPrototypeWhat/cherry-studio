@@ -7,22 +7,16 @@ import { useSettings } from '@renderer/hooks/useSettings'
 import type { Message } from '@renderer/types'
 import { escapeBrackets, removeSvgEmptyLines, withGeminiGrounding } from '@renderer/utils/formats'
 import { isEmpty } from 'lodash'
-import { type FC, useCallback, useMemo } from 'react'
+import MarkdownIt from 'markdown-it'
+import markdownItKatex from 'markdown-it-katex'
+import markdownItMathjax3 from 'markdown-it-mathjax3'
+import { motion } from 'motion/react'
+import { type FC, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import ReactMarkdown, { type Components } from 'react-markdown'
-import rehypeKatex from 'rehype-katex'
-// @ts-ignore next-line
-import rehypeMathjax from 'rehype-mathjax'
-import rehypeRaw from 'rehype-raw'
-import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
 
 import CodeBlock from './CodeBlock'
 import ImagePreview from './ImagePreview'
 import Link from './Link'
-
-const ALLOWED_ELEMENTS =
-  /<(style|p|div|span|b|i|strong|em|ul|ol|li|table|tr|td|th|thead|tbody|h[1-6]|blockquote|pre|code|br|hr|svg|path|circle|rect|line|polyline|polygon|text|g|defs|title|desc|tspan|sub|sup)/i
 
 interface Props {
   message: Message
@@ -40,7 +34,25 @@ const Markdown: FC<Props> = ({ message, citationsData }) => {
   const { t } = useTranslation()
   const { renderInputMessageAsMarkdown, mathEngine } = useSettings()
 
-  const rehypeMath = useMemo(() => (mathEngine === 'KaTeX' ? rehypeKatex : rehypeMathjax), [mathEngine])
+  // 配置 markdown-it
+  const md = useMemo(() => {
+    const instance = new MarkdownIt({
+      html: true,
+      linkify: true,
+      typographer: true
+    })
+
+    if (mathEngine === 'KaTeX') {
+      instance.use(markdownItKatex)
+    } else {
+      instance.use(markdownItMathjax3)
+    }
+
+    return instance
+  }, [mathEngine])
+
+  // 存储已解析的块
+  const markdownRef = useRef<HTMLSpanElement>(null) // 缓冲区存储原始消息
 
   const messageContent = useMemo(() => {
     const empty = isEmpty(message.content)
@@ -49,14 +61,9 @@ const Markdown: FC<Props> = ({ message, citationsData }) => {
     return removeSvgEmptyLines(escapeBrackets(content))
   }, [message, t])
 
-  const rehypePlugins = useMemo(() => {
-    const hasElements = ALLOWED_ELEMENTS.test(messageContent)
-    return hasElements ? [rehypeRaw, rehypeMath] : [rehypeMath]
-  }, [messageContent, rehypeMath])
-
   const components = useCallback(() => {
     const baseComponents = {
-      a: (props: any) => {
+      a: (props) => {
         if (props.href && citationsData?.has(props.href)) {
           return <Link {...props} citationData={citationsData.get(props.href)} />
         }
@@ -64,10 +71,10 @@ const Markdown: FC<Props> = ({ message, citationsData }) => {
       },
       code: CodeBlock,
       img: ImagePreview
-    } as Partial<Components>
+    }
 
     if (messageContent.includes('<style>')) {
-      baseComponents.style = MarkdownShadowDOMRenderer as any
+      baseComponents.style = MarkdownShadowDOMRenderer
     }
 
     return baseComponents
@@ -77,20 +84,20 @@ const Markdown: FC<Props> = ({ message, citationsData }) => {
     return <p style={{ marginBottom: 5, whiteSpace: 'pre-wrap' }}>{messageContent}</p>
   }
 
+  useEffect(() => {
+    const tokens = md.parse(messageContent, {}) // 解析完整内容
+    const html = md.renderer.render(tokens, md.options, {})
+    markdownRef.current.innerHTML = html
+  }, [messageContent, md])
+
   return (
-    <ReactMarkdown
-      rehypePlugins={rehypePlugins}
-      remarkPlugins={[remarkMath, remarkGfm]}
-      className="markdown"
-      components={components()}
-      disallowedElements={['iframe']}
-      remarkRehypeOptions={{
-        footnoteLabel: t('common.footnotes'),
-        footnoteLabelTagName: 'h4',
-        footnoteBackContent: ' '
-      }}>
-      {messageContent}
-    </ReactMarkdown>
+    <motion.span
+      ref={markdownRef}
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="markdown-block"
+    />
   )
 }
 

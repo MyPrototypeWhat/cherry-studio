@@ -2,6 +2,8 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import { nanoid } from '@reduxjs/toolkit'
 import type { MCPConfig, MCPServer } from '@renderer/types'
 
+const { appPath } = await window.api.getAppInfo()
+
 const initialState: MCPConfig = {
   servers: [
     {
@@ -11,7 +13,9 @@ const initialState: MCPConfig = {
       baseUrl: '',
       command: 'npx',
       args: ['-y', '@mcpmarket/mcp-auto-install', 'connect', '--json'],
-      env: {},
+      env: {
+        MCP_REGISTRY_PATH: `${appPath}/resources/mcp-registry.json`
+      },
       isActive: false
     }
   ]
